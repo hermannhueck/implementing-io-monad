@@ -1,29 +1,12 @@
-# Future vs. Monix Task
+# Implementing the IO Monad
 
-This repo contains code & slides for my talk on this topic.
-<br/>
-<br/>
+In this repo I provide my own implementation of the IO Monad.
 
-scala.concurrent.Future is familiar to most Scala devs.
+It is just a feasibility study, not production code.
 
-This presentation first talks about referential transparency and the IO Monad.
-
-Then it compares Future with monix.eval.Task (Monix 3.x)
-with their Pros and Cons.
-
-As Scala's *Future* is used in many ennvironments and libraries, we look at
-how *Future* can be converted to *Task* and - vice versa - how *Task* to *Future*.
-
-Often recurring on the valuable Monix *Task* doumentation at<br/>
-https://monix.io/docs/3x/eval/task.html<br/>
-the presentation also gives an introduction to Monix Task.
-<br/>
-<br/>
+The API of my IO is very much influenced by Monix Task.
 
 ## Resources
-
-- Code and Slides of this Talk:<br/>
-  https://github.com/hermannhueck/future-vs-monix-task
 
 - Monix 3.x Documentation<br/>
   https://monix.io/docs/3x/
