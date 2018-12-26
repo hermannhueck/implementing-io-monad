@@ -1,18 +1,21 @@
 package solution
 
 import cats.Monad
-import solution.auth._
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
+import scala.util.Try
 
 /*
-  Step 16 provides IO.fromFuture.
-  These methods (eagerly) converts a Future into an IO.
-  Using IO.defer it can be made a lazy IO.
+  Step 12b defines a monad instance for IO.
+  It also abstracts the example 12a to use any Monad instead of Task.
+
+  sumIO becomes sumF[F[_]: Monad]
+  fibonacciIO becomes fibonacciF[F[_]: Monad]
+  factorialIO becomes factorialF[F[_]: Monad]
+  computeIO becomes computeF[F[_]: Monad]
  */
-object IOApp16 extends App {
+object IOApp12b extends App {
 
   trait IO[A] {
 
@@ -21,12 +24,10 @@ object IOApp16 extends App {
     private def run(): A = this match {
       case Pure(thunk) => thunk()
       case Eval(thunk) => thunk()
-      case Suspend(thunk) => thunk().run()
-      case FlatMap(src, f) => f(src.run()).run()
     }
 
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
-    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
+    def map[B](f: A => B): IO[B] = IO { f(run()) }
+    def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
 
     // ----- impure sync run* methods
 
@@ -69,8 +70,6 @@ object IOApp16 extends App {
 
     private case class Pure[A](thunk: () => A) extends IO[A]
     private case class Eval[A](thunk: () => A) extends IO[A]
-    private case class Suspend[A](thunk: () => IO[A]) extends IO[A]
-    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B]
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
@@ -78,29 +77,6 @@ object IOApp16 extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
-
-    def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
-
-    def fromTry[A](tryy: Try[A]): IO[A] = IO {
-      tryy match {
-        case Failure(t) => throw t
-        case Success(value) => value
-      }
-    }
-
-    def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
-      either match {
-        case Left(t) => throw t
-        case Right(value) => value
-      }
-    }
-
-    def fromFuture[A](future: Future[A]): IO[A] =
-      future.value match {
-        case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(future, Duration.Inf) } // eval is lazy!
-      }
 
     implicit def ioMonad: Monad[IO] = new Monad[IO] {
       override def pure[A](value: A): IO[A] = IO.pure(value)
@@ -111,38 +87,69 @@ object IOApp16 extends App {
 
 
 
-  def futureGetUsers(implicit ec: ExecutionContext): Future[Seq[User]] = {
-    Future {
-      println("===> side effect <===")
-      User.getUsers
-    }
-  }
+  import cats.syntax.flatMap._
+  import cats.syntax.functor._
 
-  {
-    // EC needed to turn a Future into an IO
+  def sumF[F[_]: Monad](from: Int, to: Int): F[Int] =
+    Monad[F].pure { sumOfRange(from, to) }
+
+  def fibonacciF[F[_]: Monad](num: Int): F[BigInt] =
+    Monad[F].pure { fibonacci(num) }
+
+  def factorialF[F[_]: Monad](num: Int): F[BigInt] =
+    Monad[F].pure { factorial(num) }
+
+  def computeF[F[_]: Monad](from: Int, to: Int): F[BigInt] =
+    for {
+      x <- sumF(from, to)
+      y <- fibonacciF(x)
+      z <- factorialF(y.intValue)
+    } yield z
+
+
+  println("\n-----")
+
+  def computeWithIO(): Unit = {
+
+    // reify F[] with IO
+    val io: IO[BigInt] = computeF[IO](1, 4)
+
     implicit val ec: ExecutionContext = ExecutionContext.global
+    io foreach { result => println(s"result = $result") }
+    //=> 6227020800
 
-    println("\n>>> IO.fromFuture(future)")
-    println("----- side effect performed eagerly")
-
-    val io = IO.fromFuture { futureGetUsers }
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println }
-    Thread sleep 1000L
+    Thread sleep 500L
   }
 
-  {
-    // EC needed to turn a Future into an IO
-    implicit val ec: ExecutionContext = ExecutionContext.global
+  def computeWithId(): Unit = {
 
-    println("\n>>> IO.defer(IO.fromFuture(future))")
-    println("----- side effect performed lazily")
-    val io = IO.defer { IO.fromFuture { futureGetUsers } }
+    import cats.Id
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
-    Thread sleep 1000L
+    // reify F[] with Id
+    val result: Id[BigInt] = computeF[Id](1, 4)
+
+    println(s"result = $result")
+    //=> 6227020800
+
+    Thread sleep 500L
   }
+
+  def computeWithOption(): Unit = {
+
+    import cats.instances.option._
+
+    // reify F[] with Option
+    val maybeResult: Option[BigInt] = computeF[Option](1, 4)
+
+    maybeResult foreach { result => println(s"result = $result") }
+    //=> 6227020800
+
+    Thread sleep 500L
+  }
+
+  computeWithIO()
+  computeWithId()
+  computeWithOption()
 
   println("-----\n")
 }

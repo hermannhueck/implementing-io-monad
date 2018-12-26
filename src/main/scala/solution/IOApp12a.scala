@@ -8,17 +8,10 @@ import scala.util.Try
 import scala.language.higherKinds
 
 /*
-  Step 12 makes the abtract 'run' method in trait IO concrete.
-  It is implemented as a pattern match over the subtypes of the ADT: Pure and Eval.
-
-  As 'run' is now a concrete method in trait IO the Function0[A] parameter
-  can no longer have the same name 'run' in order not ot override the base traits method 'run'.
-  I called it 'thunk'.
-
-  The method IO#run can now be made private.
-  The other IO#run* methods are provided for public use.
+  Step 12a defines 3 method which return IO[A]: sumIO, fibonacciIO, factorialIO
+  Based on these methods it defines method 'compute' that uses these methods in a for-comprehension.
  */
-object IOApp12 extends App {
+object IOApp12a extends App {
 
   trait IO[A] {
 
@@ -48,8 +41,7 @@ object IOApp12 extends App {
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
-    // convert Try based callback into an Either based callback
-      runAsync0(ec, (ea: Either[Throwable, A]) => callback(ea.toTry))
+      runAsync(ea => callback(ea.toTry)) // convert Try based callback into an Either based callback
 
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Either based callback
@@ -90,70 +82,29 @@ object IOApp12 extends App {
   }
 
 
+  def sumIO(from: Int, to: Int): IO[Int] =
+    IO { sumOfRange(from, to) }
 
-  import cats.syntax.functor._
-  import cats.syntax.flatMap._
+  def fibonacciIO(num: Int): IO[BigInt] =
+    IO { fibonacci(num) }
 
-  def sumF[F[_]: Monad](from: Int, to: Int): F[Int] =
-    Monad[F].pure { sumOfRange(from, to) }
+  def factorialIO(num: Int): IO[BigInt] =
+    IO { factorial(num) }
 
-  def fibonacciF[F[_]: Monad](num: Int): F[BigInt] =
-    Monad[F].pure { fibonacci(num) }
-
-  def factorialF[F[_]: Monad](num: Int): F[BigInt] =
-    Monad[F].pure { factorial(num) }
-
-  def computeF[F[_]: Monad](from: Int, to: Int): F[BigInt] =
+  def computeIO(from: Int, to: Int): IO[BigInt] =
     for {
-      x <- sumF(from, to)
-      y <- fibonacciF(x)
-      z <- factorialF(y.intValue)
+      x <- sumIO(from, to)
+      y <- fibonacciIO(x)
+      z <- factorialIO(y.intValue)
     } yield z
 
 
-  println("\n-----")
+  val io: IO[BigInt] = computeIO(1, 4)
 
-  def computeWithIO(): Unit = {
+  implicit val ec: ExecutionContext = ExecutionContext.global
+  io foreach { result => println(s"result = $result") }
+  //=> 6227020800
 
-    // reify F[] with IO
-    val io: IO[BigInt] = computeF[IO](1, 4)
-
-    implicit val ec: ExecutionContext = ExecutionContext.global
-    io foreach { result => println(s"result = $result") }
-    //=> 6227020800
-
-    Thread sleep 500L
-  }
-
-  def computeWithId(): Unit = {
-
-    import cats.Id
-
-    // reify F[] with Id
-    val result: Id[BigInt] = computeF[Id](1, 4)
-
-    println(s"result = $result")
-    //=> 6227020800
-
-    Thread sleep 500L
-  }
-
-  def computeWithOption(): Unit = {
-
-    import cats.instances.option._
-
-    // reify F[] with Option
-    val maybeResult: Option[BigInt] = computeF[Option](1, 4)
-
-    maybeResult foreach { result => println(s"result = $result") }
-    //=> 6227020800
-
-    Thread sleep 500L
-  }
-
-  computeWithIO()
-  computeWithId()
-  computeWithOption()
-
+  Thread sleep 500L
   println("-----\n")
 }
