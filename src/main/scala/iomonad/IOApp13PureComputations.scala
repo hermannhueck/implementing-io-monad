@@ -1,22 +1,17 @@
-package solution
+package iomonad
 
-import solution.auth._
+import cats.Monad
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
+import scala.language.higherKinds
+
 /*
-  Step 11 makes the abtract 'run' method in trait IO concrete.
-  It is implemented as a pattern match over the subtypes of the ADT: Pure and Eval.
-
-  As 'run' is now a concrete method in trait IO the Function0[A] parameter
-  can no longer have the same name 'run' in order not ot override the base traits method 'run'.
-  I called it 'thunk'.
-
-  The method IO#run can now be made private.
-  The other IO#run* methods are provided for public use.
+  Step 13 defines 3 method which return IO[A]: sumIO, fibonacciIO, factorialIO
+  Based on these methods it defines method 'compute' that uses these methods in a for-comprehension.
  */
-object IOApp11 extends App {
+object IOApp13PureComputations extends App {
 
   trait IO[A] {
 
@@ -78,63 +73,38 @@ object IOApp11 extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
+
+    implicit def ioMonad: Monad[IO] = new Monad[IO] {
+      override def pure[A](value: A): IO[A] = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
+    }
   }
 
 
+  def sumIO(from: Int, to: Int): IO[Int] =
+    IO { sumOfRange(from, to) }
 
-  import Password._
-  import User._
+  def fibonacciIO(num: Int): IO[BigInt] =
+    IO { fibonacci(num) }
 
-  // authenticate impl with for-comprehension
-  def authenticate(username: String, password: String): IO[Boolean] =
+  def factorialIO(num: Int): IO[BigInt] =
+    IO { factorial(num) }
+
+  def computeIO(from: Int, to: Int): IO[BigInt] =
     for {
-      optUser <- IO(getUsers) map { users =>
-        users.find(_.name == username)
-      }
-      authenticated <- IO(getPasswords) map { passwords =>
-        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
-      }
-    } yield authenticated
+      x <- sumIO(from, to)
+      y <- fibonacciIO(x)
+      z <- factorialIO(y.intValue)
+    } yield z
 
 
-
-  println("\n-----")
+  val io: IO[BigInt] = computeIO(1, 4)
 
   implicit val ec: ExecutionContext = ExecutionContext.global
+  io foreach { result => println(s"result = $result") }
+  //=> 6227020800
 
-  IO(getUsers) foreach { users => users foreach println }
   Thread sleep 500L
-  println("-----")
-
-  IO(getPasswords) foreach { users => users foreach println }
-  Thread sleep 500L
-  println("-----")
-
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
-
-
-  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
-
-  println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
-
-  println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
-
-  println("\n>>> IO#runToFuture:")
-  checkMaggie.runToFuture onComplete authCallbackTry
-  Thread sleep 500L
-
-  println("\n>>> IO#runOnComplete:")
-  checkMaggie runOnComplete authCallbackTry
-  Thread sleep 500L
-
-  println("\n>>> IO#runAsync:")
-  checkMaggie runAsync authCallbackEither
-  Thread sleep 500L
-
   println("-----\n")
 }

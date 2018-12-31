@@ -1,19 +1,19 @@
-package solution
+package iomonad
 
-import solution.auth._
+import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /*
-  In step 7 I added three async run* methods: runToFuture, runOnComplete, runAsync.
+  In step 8 I added three async run* methods: runToFuture, runOnComplete, runAsync.
   All three accept an implicit ExecutionContext.
 
   'runToFuture' runs 'run' in a Future and returns it.
   'runOnComplete' takes a Try based callback and invokes a Runnable with 'runToTry' in the ExecutionContext.
   'runAsync' takes a Either based callback and invokes a Runnable with 'runToEither' in the ExecutionContext.
  */
-object IOApp07 extends App {
+object IOApp08RunAsync extends App {
 
   case class IO[A](run: () => A) {
 

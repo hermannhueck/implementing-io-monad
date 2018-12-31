@@ -1,16 +1,16 @@
-package solution
+package iomonad
 
-import solution.auth._
+import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /*
-  Step 8 refactors IO#runOnComplete and IO#runAsync:
+  Step 9 refactors IO#runOnComplete and IO#runAsync:
   - private helper method IO#runAsync0 takes an EC and an Either based callback
     IO#runAsync and IO#runOnComplete are implemented in terms of IO#runAsync0.
  */
-object IOApp08 extends App {
+object IOApp09RunAsync0 extends App {
 
   case class IO[A](run: () => A) {
 

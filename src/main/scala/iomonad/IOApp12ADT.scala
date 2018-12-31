@@ -1,21 +1,22 @@
-package solution
+package iomonad
 
-import cats.Monad
+import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.Try
 
 /*
-  Step 12b defines a monad instance for IO.
-  It also abstracts the example 12a to use any Monad instead of Task.
+  Step 12 makes the abstract 'run' method in trait IO concrete.
+  It is implemented as a pattern match over the subtypes of the ADT: Pure and Eval.
 
-  sumIO becomes sumF[F[_]: Monad]
-  fibonacciIO becomes fibonacciF[F[_]: Monad]
-  factorialIO becomes factorialF[F[_]: Monad]
-  computeIO becomes computeF[F[_]: Monad]
+  As 'run' is now a concrete method in trait IO the Function0[A] parameter
+  can no longer have the same name 'run' in order not ot override the base traits method 'run'.
+  I called it 'thunk'.
+
+  The method IO#run can now be made private.
+  The other IO#run* methods are provided for public use.
  */
-object IOApp12b extends App {
+object IOApp12ADT extends App {
 
   trait IO[A] {
 
@@ -77,79 +78,63 @@ object IOApp12b extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
-
-    implicit def ioMonad: Monad[IO] = new Monad[IO] {
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
-      override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
-    }
   }
 
 
 
-  import cats.syntax.flatMap._
-  import cats.syntax.functor._
+  import Password._
+  import User._
 
-  def sumF[F[_]: Monad](from: Int, to: Int): F[Int] =
-    Monad[F].pure { sumOfRange(from, to) }
-
-  def fibonacciF[F[_]: Monad](num: Int): F[BigInt] =
-    Monad[F].pure { fibonacci(num) }
-
-  def factorialF[F[_]: Monad](num: Int): F[BigInt] =
-    Monad[F].pure { factorial(num) }
-
-  def computeF[F[_]: Monad](from: Int, to: Int): F[BigInt] =
+  // authenticate impl with for-comprehension
+  def authenticate(username: String, password: String): IO[Boolean] =
     for {
-      x <- sumF(from, to)
-      y <- fibonacciF(x)
-      z <- factorialF(y.intValue)
-    } yield z
+      optUser <- IO(getUsers) map { users =>
+        users.find(_.name == username)
+      }
+      authenticated <- IO(getPasswords) map { passwords =>
+        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
+      }
+    } yield authenticated
+
 
 
   println("\n-----")
 
-  def computeWithIO(): Unit = {
+  implicit val ec: ExecutionContext = ExecutionContext.global
 
-    // reify F[] with IO
-    val io: IO[BigInt] = computeF[IO](1, 4)
+  IO(getUsers) foreach { users => users foreach println }
+  Thread sleep 500L
+  println("-----")
 
-    implicit val ec: ExecutionContext = ExecutionContext.global
-    io foreach { result => println(s"result = $result") }
-    //=> 6227020800
+  IO(getPasswords) foreach { users => users foreach println }
+  Thread sleep 500L
+  println("-----")
 
-    Thread sleep 500L
-  }
+  println("\n>>> IO#run: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println
+  authenticate("maggieXXX", "maggie-pw") foreach println
+  authenticate("maggie", "maggie-pwXXX") foreach println
 
-  def computeWithId(): Unit = {
 
-    import cats.Id
+  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
-    // reify F[] with Id
-    val result: Id[BigInt] = computeF[Id](1, 4)
+  println("\n>>> IO#runToTry:")
+  printAuthTry(checkMaggie.runToTry)
 
-    println(s"result = $result")
-    //=> 6227020800
+  println("\n>>> IO#runToEither:")
+  printAuthEither(checkMaggie.runToEither)
 
-    Thread sleep 500L
-  }
+  println("\n>>> IO#runToFuture:")
+  checkMaggie.runToFuture onComplete authCallbackTry
+  Thread sleep 500L
 
-  def computeWithOption(): Unit = {
+  println("\n>>> IO#runOnComplete:")
+  checkMaggie runOnComplete authCallbackTry
+  Thread sleep 500L
 
-    import cats.instances.option._
-
-    // reify F[] with Option
-    val maybeResult: Option[BigInt] = computeF[Option](1, 4)
-
-    maybeResult foreach { result => println(s"result = $result") }
-    //=> 6227020800
-
-    Thread sleep 500L
-  }
-
-  computeWithIO()
-  computeWithId()
-  computeWithOption()
+  println("\n>>> IO#runAsync:")
+  checkMaggie runAsync authCallbackEither
+  Thread sleep 500L
 
   println("-----\n")
 }

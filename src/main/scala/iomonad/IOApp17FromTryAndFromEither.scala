@@ -1,31 +1,30 @@
-package solution
+package iomonad
 
-import solution.auth._
+import cats.Monad
+import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /*
-  Step 10 converts case class IO into trait IO with the abstract method 'run'.
-  IO is an ADT with the two subtypes 'Pure' and 'Eval'
-
-  IO.pure creates a Pure instance instead of an IO instance.
-  IO.now is an alias for pure.
-  IO.eval creates a Eval instance instead of an IO instance.
-  IO.delay is an alias for IO.eval.
-  IO.apply is an alias for IO.eval.
-
-  Having apply it is more natural to create new IO instances.
-  We can just use IO { thunk } instead of IO.eval { thunk }
+  Step 17 provides IO.fromTry and IO.fromEither.
+  These methods (eagerly) converts a Try or an Either into an IO.
  */
-object IOApp10 extends App {
+object IOApp17FromTryAndFromEither extends App {
 
   trait IO[A] {
 
-    def run: () => A
+    import IO._
 
-    def map[B](f: A => B): IO[B] = IO { f(run()) }
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
+    private def run(): A = this match {
+      case Pure(thunk) => thunk()
+      case Eval(thunk) => thunk()
+      case Suspend(thunk) => thunk().run()
+      case FlatMap(src, f) => f(src.run()).run()
+    }
+
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
 
     // ----- impure sync run* methods
 
@@ -66,8 +65,10 @@ object IOApp10 extends App {
 
   object IO {
 
-    private case class Pure[A](run: () => A) extends IO[A]
-    private case class Eval[A](run: () => A) extends IO[A]
+    private case class Pure[A](thunk: () => A) extends IO[A]
+    private case class Eval[A](thunk: () => A) extends IO[A]
+    private case class Suspend[A](thunk: () => IO[A]) extends IO[A]
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B]
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
@@ -75,22 +76,30 @@ object IOApp10 extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
+
+    def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
+    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
+
+    def fromTry[A](tryy: Try[A]): IO[A] = IO {
+      tryy match {
+        case Failure(t) => throw t
+        case Success(value) => value
+      }
+    }
+
+    def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
+      either match {
+        case Left(t) => throw t
+        case Right(value) => value
+      }
+    }
+
+    implicit def ioMonad: Monad[IO] = new Monad[IO] {
+      override def pure[A](value: A): IO[A] = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
+    }
   }
-
-
-
-  import Password._, User._
-
-  // authenticate impl with for-comprehension
-  def authenticate(username: String, password: String): IO[Boolean] =
-    for {
-      optUser <- IO(getUsers) map { users =>
-        users.find(_.name == username)
-      }
-      authenticated <- IO(getPasswords) map { passwords =>
-        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
-      }
-    } yield authenticated
 
 
 
@@ -98,38 +107,21 @@ object IOApp10 extends App {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  IO(getUsers) foreach { users => users foreach println }
+  val tryy = Try { User.getUsers }
+  val io1 = IO.fromTry(tryy)
+  io1 runAsync {
+    case Left(t) => println(t.toString)
+    case Right(users) => users foreach println
+  }
   Thread sleep 500L
+
   println("-----")
-
-  IO(getPasswords) foreach { users => users foreach println }
-  Thread sleep 500L
-  println("-----")
-
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
-
-
-  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
-
-  println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
-
-  println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
-
-  println("\n>>> IO#runToFuture:")
-  checkMaggie.runToFuture onComplete authCallbackTry
-  Thread sleep 500L
-
-  println("\n>>> IO#runOnComplete:")
-  checkMaggie runOnComplete authCallbackTry
-  Thread sleep 500L
-
-  println("\n>>> IO#runAsync:")
-  checkMaggie runAsync authCallbackEither
+  val ei = Try { User.getUsers }.toEither
+  val io2 = IO.fromEither(ei)
+  io2 runAsync  {
+    case Left(t) => println(t.toString)
+    case Right(users) => users foreach println
+  }
   Thread sleep 500L
 
   println("-----\n")

@@ -1,4 +1,4 @@
-package solution.auth
+package iomonad.auth
 
 import java.net.URL
 

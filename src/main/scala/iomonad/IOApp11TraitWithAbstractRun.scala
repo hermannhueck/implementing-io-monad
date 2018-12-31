@@ -1,26 +1,28 @@
-package solution
+package iomonad
 
-import cats.Monad
+import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-
-import scala.language.higherKinds
+import scala.util.{Failure, Success, Try}
 
 /*
-  Step 12a defines 3 method which return IO[A]: sumIO, fibonacciIO, factorialIO
-  Based on these methods it defines method 'compute' that uses these methods in a for-comprehension.
+  Step 11 converts case class IO into trait IO with the abstract method 'run'.
+  IO is an ADT with the two subtypes 'Pure' and 'Eval'
+
+  IO.pure creates a Pure instance instead of an IO instance.
+  IO.now is an alias for pure.
+  IO.eval creates a Eval instance instead of an IO instance.
+  IO.delay is an alias for IO.eval.
+  IO.apply is an alias for IO.eval.
+
+  Having apply it is more natural to create new IO instances.
+  We can just use IO { thunk } instead of IO.eval { thunk }
  */
-object IOApp12a extends App {
+object IOApp11TraitWithAbstractRun extends App {
 
   trait IO[A] {
 
-    import IO._
-
-    private def run(): A = this match {
-      case Pure(thunk) => thunk()
-      case Eval(thunk) => thunk()
-    }
+    def run: () => A
 
     def map[B](f: A => B): IO[B] = IO { f(run()) }
     def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
@@ -64,8 +66,8 @@ object IOApp12a extends App {
 
   object IO {
 
-    private case class Pure[A](thunk: () => A) extends IO[A]
-    private case class Eval[A](thunk: () => A) extends IO[A]
+    private case class Pure[A](run: () => A) extends IO[A]
+    private case class Eval[A](run: () => A) extends IO[A]
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
@@ -73,38 +75,62 @@ object IOApp12a extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
-
-    implicit def ioMonad: Monad[IO] = new Monad[IO] {
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
-      override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
-    }
   }
 
 
-  def sumIO(from: Int, to: Int): IO[Int] =
-    IO { sumOfRange(from, to) }
 
-  def fibonacciIO(num: Int): IO[BigInt] =
-    IO { fibonacci(num) }
+  import Password._, User._
 
-  def factorialIO(num: Int): IO[BigInt] =
-    IO { factorial(num) }
-
-  def computeIO(from: Int, to: Int): IO[BigInt] =
+  // authenticate impl with for-comprehension
+  def authenticate(username: String, password: String): IO[Boolean] =
     for {
-      x <- sumIO(from, to)
-      y <- fibonacciIO(x)
-      z <- factorialIO(y.intValue)
-    } yield z
+      optUser <- IO(getUsers) map { users =>
+        users.find(_.name == username)
+      }
+      authenticated <- IO(getPasswords) map { passwords =>
+        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
+      }
+    } yield authenticated
 
 
-  val io: IO[BigInt] = computeIO(1, 4)
+
+  println("\n-----")
 
   implicit val ec: ExecutionContext = ExecutionContext.global
-  io foreach { result => println(s"result = $result") }
-  //=> 6227020800
 
+  IO(getUsers) foreach { users => users foreach println }
   Thread sleep 500L
+  println("-----")
+
+  IO(getPasswords) foreach { users => users foreach println }
+  Thread sleep 500L
+  println("-----")
+
+  println("\n>>> IO#run: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println
+  authenticate("maggieXXX", "maggie-pw") foreach println
+  authenticate("maggie", "maggie-pwXXX") foreach println
+
+
+  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
+
+  println("\n>>> IO#runToTry:")
+  printAuthTry(checkMaggie.runToTry)
+
+  println("\n>>> IO#runToEither:")
+  printAuthEither(checkMaggie.runToEither)
+
+  println("\n>>> IO#runToFuture:")
+  checkMaggie.runToFuture onComplete authCallbackTry
+  Thread sleep 500L
+
+  println("\n>>> IO#runOnComplete:")
+  checkMaggie runOnComplete authCallbackTry
+  Thread sleep 500L
+
+  println("\n>>> IO#runAsync:")
+  checkMaggie runAsync authCallbackEither
+  Thread sleep 500L
+
   println("-----\n")
 }

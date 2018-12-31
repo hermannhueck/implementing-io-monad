@@ -1,17 +1,18 @@
-package solution
+package iomonad
 
 import cats.Monad
-import solution.auth._
+import iomonad.auth._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /*
-  Step 17 provides IO.deferFuture which can make the Future lazy.
-  IO.deferFuture(f) is just an alias for IO.defer { IO.fromFuture(f) }
+  Step 18 provides IO.fromFuture.
+  These methods (eagerly) converts a Future into an IO.
+  Using IO.defer it can be made a lazy IO.
  */
-object IOApp17 extends App {
+object IOApp18FromFuture extends App {
 
   trait IO[A] {
 
@@ -95,14 +96,11 @@ object IOApp17 extends App {
       }
     }
 
-    def fromFuture[A](fa: Future[A]): IO[A] =
-      fa.value match {
+    def fromFuture[A](future: Future[A]): IO[A] =
+      future.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(future, Duration.Inf) } // eval is lazy!
       }
-
-    def deferFuture[A](fa: => Future[A]): IO[A] =
-      defer(IO.fromFuture(fa))
 
     implicit def ioMonad: Monad[IO] = new Monad[IO] {
       override def pure[A](value: A): IO[A] = IO.pure(value)
@@ -124,12 +122,12 @@ object IOApp17 extends App {
     // EC needed to turn a Future into an IO
     implicit val ec: ExecutionContext = ExecutionContext.global
 
-    println("\n>>> IO.defer(IO.fromFuture(future))")
-    println("----- side effect performed lazily")
-    val io = IO.defer { IO.fromFuture { futureGetUsers } }
+    println("\n>>> IO.fromFuture(future)")
+    println("----- side effect performed eagerly")
 
+    val io = IO.fromFuture { futureGetUsers }
     io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
+    io foreach { users => users foreach println }
     Thread sleep 1000L
   }
 
@@ -137,9 +135,9 @@ object IOApp17 extends App {
     // EC needed to turn a Future into an IO
     implicit val ec: ExecutionContext = ExecutionContext.global
 
-    println("\n>>> IO.deferFuture(future)")
+    println("\n>>> IO.defer(IO.fromFuture(future))")
     println("----- side effect performed lazily")
-    val io = IO.deferFuture { futureGetUsers }
+    val io = IO.defer { IO.fromFuture { futureGetUsers } }
 
     io foreach { users => users foreach println } // prints "side effect"
     io foreach { users => users foreach println } // prints "side effect"

@@ -1,6 +1,6 @@
 import scala.util.Try
 
-package object solution extends tools.Tools {
+package object iomonad extends tools.Tools {
 
   def printAuthTry[A](tryy: Try[A]): Unit = println(
     tryy.fold(
