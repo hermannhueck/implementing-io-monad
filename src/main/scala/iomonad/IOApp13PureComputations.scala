@@ -13,7 +13,7 @@ import scala.language.higherKinds
  */
 object IOApp13PureComputations extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 

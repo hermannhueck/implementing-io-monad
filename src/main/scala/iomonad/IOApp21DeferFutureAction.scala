@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
  */
 object IOApp21DeferFutureAction extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -54,12 +54,8 @@ object IOApp21DeferFutureAction extends App {
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync0(ec, callback)
 
-    private val runAsync0: (ExecutionContext, Either[Throwable, A] => Unit) => Unit = {
-      (ec: ExecutionContext, callback: Either[Throwable, A] => Unit) =>
-        ec.execute(new Runnable {
-          override def run(): Unit = callback(runToEither(ec))
-        })
-    }
+    private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
+      ec.execute(() => callback(runToEither(ec)))
 
     // Triggers async evaluation of this IO, executing the given function for the generated result.
     // WARNING: Will not be called if this IO is never completed or if it is completed with a failure.
@@ -107,17 +103,11 @@ object IOApp21DeferFutureAction extends App {
     def fromFuture[A](fa: Future[A]): IO[A] =
       fa.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
       }
 
     def deferFuture[A](fa: => Future[A]): IO[A] =
       defer(IO.fromFuture(fa))
-
-    def deferFutureAction0[A](f: ExecutionContext => Future[A]): IO[A] = {
-      def runIt(f0: ExecutionContext => Future[A])(implicit ec: ExecutionContext): IO[A] = deferFuture(f0(ec))
-      implicit lazy val ec0: ExecutionContext = ExecutionContext.global
-      runIt(f)
-    }
 
     def deferFutureAction[A](ec2Future: ExecutionContext => Future[A]): IO[A] =
       FutureToTask(ec2Future)

@@ -17,7 +17,7 @@ import scala.util.Try
  */
 object IOApp14MonadInstance extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -78,6 +78,7 @@ object IOApp14MonadInstance extends App {
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
 
+    // Monad instance defined in implicit context
     implicit def ioMonad: Monad[IO] = new Monad[IO] {
       override def pure[A](value: A): IO[A] = IO.pure(value)
       override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
@@ -111,10 +112,11 @@ object IOApp14MonadInstance extends App {
 
   def computeWithIO(): Unit = {
 
+    import scala.concurrent.ExecutionContext.Implicits.global
+
     // reify F[] with IO
     val io: IO[BigInt] = computeF[IO](1, 4)
 
-    implicit val ec: ExecutionContext = ExecutionContext.global
     io foreach { result => println(s"result = $result") }
     //=> 6227020800
 
@@ -147,9 +149,25 @@ object IOApp14MonadInstance extends App {
     Thread sleep 500L
   }
 
+  def computeWithFuture(): Unit = {
+
+    import scala.concurrent.{Future, ExecutionContext}
+    import ExecutionContext.Implicits.global
+    import cats.instances.future._
+
+    // reify F[] with Future
+    val future: Future[BigInt] = computeF[Future](1, 4)
+
+    future foreach { result => println(s"result = $result") }
+    //=> 6227020800
+
+    Thread sleep 500L
+  }
+
   computeWithIO()
   computeWithId()
   computeWithOption()
+  computeWithFuture()
 
   println("-----\n")
 }

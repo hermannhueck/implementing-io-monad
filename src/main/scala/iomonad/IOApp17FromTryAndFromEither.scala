@@ -12,7 +12,7 @@ import scala.util.{Failure, Success, Try}
  */
 object IOApp17FromTryAndFromEither extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -109,16 +109,16 @@ object IOApp17FromTryAndFromEither extends App {
 
   val tryy = Try { User.getUsers }
   val io1 = IO.fromTry(tryy)
-  io1 runAsync {
-    case Left(t) => println(t.toString)
-    case Right(users) => users foreach println
+  io1 runOnComplete {               // can use runAsync as well
+    case Failure(t) => println(t.toString)
+    case Success(users) => users foreach println
   }
   Thread sleep 500L
 
   println("-----")
-  val ei = Try { User.getUsers }.toEither
-  val io2 = IO.fromEither(ei)
-  io2 runAsync  {
+  val either = Try { User.getUsers }.toEither
+  val io2 = IO.fromEither(either)
+  io2 runAsync  {                   // can use runOnComplete as well
     case Left(t) => println(t.toString)
     case Right(users) => users foreach println
   }

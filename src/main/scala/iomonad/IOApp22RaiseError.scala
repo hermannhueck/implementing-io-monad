@@ -8,15 +8,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /*
-  Step 21 provides IO.deferFutureAction which allows to provide the EC when the IO is run.
-  - I expanded the ADT IO again with a new subtype FutureToTask which wraps a function of type: ExecutionContext => Future[A]
-  - IO.deferFutureAction just creates an instance of FutureToTask passing the function it received to it.
-  - The IO#run method in trait IO has a new case for FutureToTask which applies the wrapped function to the implicitly passed EC,
-    turns it into an IO with fromFuture and runs it passing the ec again.
+  Step 22
  */
 object IOApp22RaiseError extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -55,12 +51,8 @@ object IOApp22RaiseError extends App {
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync0(ec, callback)
 
-    private val runAsync0: (ExecutionContext, Either[Throwable, A] => Unit) => Unit = {
-      (ec: ExecutionContext, callback: Either[Throwable, A] => Unit) =>
-        ec.execute(new Runnable {
-          override def run(): Unit = callback(runToEither(ec))
-        })
-    }
+    private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
+      ec.execute(() => callback(runToEither(ec)))
 
     // Triggers async evaluation of this IO, executing the given function for the generated result.
     // WARNING: Will not be called if this IO is never completed or if it is completed with a failure.
@@ -86,6 +78,7 @@ object IOApp22RaiseError extends App {
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
+    def failed[A](exception: Exception): IO[A] = raiseError(exception) // analogous to Future.failed
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
@@ -111,17 +104,11 @@ object IOApp22RaiseError extends App {
     def fromFuture[A](fa: Future[A]): IO[A] =
       fa.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
       }
 
     def deferFuture[A](fa: => Future[A]): IO[A] =
       defer(IO.fromFuture(fa))
-
-    def deferFutureAction0[A](f: ExecutionContext => Future[A]): IO[A] = {
-      def runIt(f0: ExecutionContext => Future[A])(implicit ec: ExecutionContext): IO[A] = deferFuture(f0(ec))
-      implicit lazy val ec0: ExecutionContext = ExecutionContext.global
-      runIt(f)
-    }
 
     def deferFutureAction[A](ec2Future: ExecutionContext => Future[A]): IO[A] =
       FutureToTask(ec2Future)
@@ -141,7 +128,7 @@ object IOApp22RaiseError extends App {
     val ioError: IO[Int] = IO.raiseError[Int](new IllegalStateException("illegal state"))
 
     implicit val ec: ExecutionContext = ExecutionContext.global
-    println(ioError.runToEither)
+    println(ioError.runToEither)          //=> Left(java.lang.IllegalStateException: illegal state)
   }
 
   Thread sleep 500L

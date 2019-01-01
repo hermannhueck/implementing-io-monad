@@ -12,9 +12,9 @@ import scala.util.{Failure, Success, Try}
   all take an implicit EC in order to enable async execution as well.
   That's what we need in the next step.
  */
-object IOApp20SyncRunMetzhodsWithEC extends App {
+object IOApp20SyncRunMethodsTakeEC extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -99,7 +99,7 @@ object IOApp20SyncRunMetzhodsWithEC extends App {
     def fromFuture[A](fa: Future[A]): IO[A] =
       fa.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
       }
 
     def deferFuture[A](fa: => Future[A]): IO[A] =

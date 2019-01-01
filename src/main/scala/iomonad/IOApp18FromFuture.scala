@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
  */
 object IOApp18FromFuture extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -99,7 +99,7 @@ object IOApp18FromFuture extends App {
     def fromFuture[A](future: Future[A]): IO[A] =
       future.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(future, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(future, Duration.Inf) } // BLOCKING!!!
       }
 
     implicit def ioMonad: Monad[IO] = new Monad[IO] {

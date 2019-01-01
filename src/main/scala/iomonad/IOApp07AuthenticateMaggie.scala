@@ -69,11 +69,14 @@ object IOApp07AuthenticateMaggie extends App {
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
+  println("\n>>> IO#run:")
+  println(checkMaggie.run())                  //=> true, may throw an Exception
+
   println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
+  printAuthTry(checkMaggie.runToTry)          //=> true
 
   println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
+  printAuthEither(checkMaggie.runToEither)    //=> true
 
   println("-----\n")
 }

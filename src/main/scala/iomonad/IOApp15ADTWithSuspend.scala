@@ -15,7 +15,7 @@ import scala.util.Try
  */
 object IOApp15ADTWithSuspend extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -119,10 +119,13 @@ object IOApp15ADTWithSuspend extends App {
   Thread sleep 500L
   println("-----")
 
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
+  println("\n>>> IO#foreach: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println       //=> true
+  Thread sleep 200L
+  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
+  Thread sleep 200L
+  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
+  Thread sleep 200L
 
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
@@ -147,14 +150,18 @@ object IOApp15ADTWithSuspend extends App {
 
   println("\n>>> IO.pure:")
   val io1 = IO.pure { println("immediate side effect"); 5 }
+  //=> immediate side effect
   Thread sleep 2000L
   io1 foreach println
+  //=> 5
   Thread sleep 2000L
 
   println("\n>>> IO.defer:")
   val io2 = IO.defer { IO.pure { println("deferred side effect"); 5 } }
   Thread sleep 2000L
   io2 foreach println
+  //=> deferred side effect
+  //=> 5
   Thread sleep 2000L
 
   println("-----\n")

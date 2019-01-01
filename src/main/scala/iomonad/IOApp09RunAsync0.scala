@@ -41,7 +41,7 @@ object IOApp09RunAsync0 extends App {
       runAsync0(ec, callback)
 
     private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
-      ec.execute(() => callback(runToEither))
+      ec.execute(() => callback(runToEither))   // SAM for a Runable
   }
 
   object IO {

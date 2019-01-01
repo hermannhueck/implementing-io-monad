@@ -9,20 +9,16 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /*
-  Step 21 provides IO.deferFutureAction which allows to provide the EC when the IO is run.
-  - I expanded the ADT IO again with a new subtype FutureToTask which wraps a function of type: ExecutionContext => Future[A]
-  - IO.deferFutureAction just creates an instance of FutureToTask passing the function it received to it.
-  - The IO#run method in trait IO has a new case for FutureToTask which applies the wrapped function to the implicitly passed EC,
-    turns it into an IO with fromFuture and runs it passing the ec again.
+  Step 23
  */
 object IOApp23Failed extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
     private def run(implicit ec: ExecutionContext): A = {
-      println(s">>>>>>>>>>>> run: $this")
+      //println(s">>>>>>>>>>>> run: $this")
       this match {
         case Pure(thunk) => thunk()
         case Eval(thunk) => thunk()
@@ -30,7 +26,7 @@ object IOApp23Failed extends App {
         case FlatMap(src, f) => f(src.run).run
         case FutureToTask(ec2Future) => fromFuture(ec2Future(ec)).run(ec)
         case Error(exception) => throw exception
-        case failed: Failed[A] => failed.get(ec)
+        case failed: Failed[A] => failed.get(ec).asInstanceOf[A]
       }
     }
 
@@ -60,12 +56,8 @@ object IOApp23Failed extends App {
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync0(ec, callback)
 
-    private val runAsync0: (ExecutionContext, Either[Throwable, A] => Unit) => Unit = {
-      (ec: ExecutionContext, callback: Either[Throwable, A] => Unit) =>
-        ec.execute(new Runnable {
-          override def run(): Unit = callback(runToEither(ec))
-        })
-    }
+    private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
+      ec.execute(() => callback(runToEither(ec)))
 
     // Triggers async evaluation of this IO, executing the given function for the generated result.
     // WARNING: Will not be called if this IO is never completed or if it is completed with a failure.
@@ -81,7 +73,7 @@ object IOApp23Failed extends App {
     //
     // The failed projection is a Task holding a value of type Throwable, emitting the error yielded by the source,
     // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
-    def failed: IO[Throwable] = Failed(this).asInstanceOf[IO[Throwable]]
+    def failed: IO[Throwable] = Failed(this)
   }
 
   object IO {
@@ -92,14 +84,14 @@ object IOApp23Failed extends App {
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B]
     private case class FutureToTask[A](f: ExecutionContext => Future[A]) extends IO[A]
     private case class Error[A](exception: Throwable) extends IO[A]
-    private case class Failed[A](io: IO[A]) extends IO[A] {
-      val get: ExecutionContext => A = ec =>
+    private case class Failed[A](io: IO[A]) extends IO[Throwable] {
+      def get(implicit ec: ExecutionContext): Throwable =
         try {
-          io.run(ec)
+          io.run
           throw new NoSuchElementException("failed")
         } catch {
           case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-          case t: Throwable => t.asInstanceOf[A]
+          case t: Throwable => t
         }
     }
 
@@ -107,6 +99,7 @@ object IOApp23Failed extends App {
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
+    def failed[A](exception: Exception): IO[A] = raiseError(exception) // analogous to Future.failed
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
@@ -132,17 +125,11 @@ object IOApp23Failed extends App {
     def fromFuture[A](fa: Future[A]): IO[A] =
       fa.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
       }
 
     def deferFuture[A](fa: => Future[A]): IO[A] =
       defer(IO.fromFuture(fa))
-
-    def deferFutureAction0[A](f: ExecutionContext => Future[A]): IO[A] = {
-      def runIt(f0: ExecutionContext => Future[A])(implicit ec: ExecutionContext): IO[A] = deferFuture(f0(ec))
-      implicit lazy val ec0: ExecutionContext = ExecutionContext.global
-      runIt(f)
-    }
 
     def deferFutureAction[A](ec2Future: ExecutionContext => Future[A]): IO[A] =
       FutureToTask(ec2Future)
@@ -162,14 +149,23 @@ object IOApp23Failed extends App {
     implicit val ec: ExecutionContext = ExecutionContext.global
 
     val ioError: IO[Int] = IO.raiseError[Int](new IllegalStateException("illegal state"))
-    //println(ioError.runToEither)
+    println(ioError.runToEither)
+    //=> Left(java.lang.IllegalStateException: illegal state)
 
+    println(">> projected:")
     val failed: IO[Throwable] = ioError.failed
     println(failed.runToEither)
     //=> Right(java.lang.IllegalStateException: illegal state)
 
+    println
+
     val ioSuccess = IO.pure(5)
+    println(ioSuccess.runToEither)
+    //=> 5
+
+    println(">> projected:")
     println(ioSuccess.failed.runToEither)
+    //=> Left(java.util.NoSuchElementException: failed)
   }
 
   Thread sleep 500L

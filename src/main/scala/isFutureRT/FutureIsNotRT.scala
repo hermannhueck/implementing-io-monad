@@ -22,6 +22,10 @@ object FutureIsNotRT extends App {
     } yield (x, y)
   }
 
+  future1 onComplete println     // Success((1,1))
+
+
+
   // same as future1, but inlined
   val future2: Future[(Int, Int)] = {
     val atomicInt = new AtomicInteger(0)
@@ -31,7 +35,6 @@ object FutureIsNotRT extends App {
     } yield (x, y)
   }
 
-  future1 onComplete println     // Success((1,1))
   future2 onComplete println     // Success((1,2))    <-- not the same result
 
   Thread.sleep(200L)

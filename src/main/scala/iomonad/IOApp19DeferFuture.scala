@@ -13,7 +13,7 @@ import scala.util.{Failure, Success, Try}
  */
 object IOApp19DeferFuture extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -98,7 +98,7 @@ object IOApp19DeferFuture extends App {
     def fromFuture[A](fa: Future[A]): IO[A] =
       fa.value match {
         case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // eval is lazy!
+        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
       }
 
     def deferFuture[A](fa: => Future[A]): IO[A] =

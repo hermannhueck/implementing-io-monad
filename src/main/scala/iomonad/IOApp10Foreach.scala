@@ -11,7 +11,7 @@ import scala.util.Try
 
   'foreach' only processes successful results, errors are reported to the ExecutionContext.
  */
-object IOApp010Foreach extends App {
+object IOApp10Foreach extends App {
 
   case class IO[A](run: () => A) {
 
@@ -90,16 +90,19 @@ object IOApp010Foreach extends App {
   Thread sleep 500L
   println("-----")
 
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
+  println("\n>>> IO#foreach: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println       //=> true
+  Thread sleep 200L
+  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
+  Thread sleep 200L
+  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
+  Thread sleep 200L
 
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
-  println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
+  println("\n>>> IO#run:")
+  println(s"isAuthenticated = ${checkMaggie.run()}")
 
   println("\n>>> IO#runToEither:")
   printAuthEither(checkMaggie.runToEither)

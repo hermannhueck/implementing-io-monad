@@ -16,9 +16,9 @@ import scala.util.Try
   The method IO#run can now be made private.
   The other IO#run* methods are provided for public use.
  */
-object IOApp12ADT extends App {
+object IOApp12ConcreteRun extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     import IO._
 
@@ -110,10 +110,13 @@ object IOApp12ADT extends App {
   Thread sleep 500L
   println("-----")
 
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
+  println("\n>>> IO#foreach: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println       //=> true
+  Thread sleep 200L
+  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
+  Thread sleep 200L
+  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
+  Thread sleep 200L
 
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")

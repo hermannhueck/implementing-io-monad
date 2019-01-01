@@ -18,9 +18,9 @@ import scala.util.{Failure, Success, Try}
   Having apply it is more natural to create new IO instances.
   We can just use IO { thunk } instead of IO.eval { thunk }
  */
-object IOApp11TraitWithAbstractRun extends App {
+object IOApp11TraitWithAbstractRunAndADT extends App {
 
-  trait IO[A] {
+  sealed trait IO[A] {
 
     def run: () => A
 
@@ -106,13 +106,19 @@ object IOApp11TraitWithAbstractRun extends App {
   Thread sleep 500L
   println("-----")
 
-  println("\n>>> IO#run: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println
-  authenticate("maggieXXX", "maggie-pw") foreach println
-  authenticate("maggie", "maggie-pwXXX") foreach println
+  println("\n>>> IO#foreach: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println       //=> true
+  Thread sleep 200L
+  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
+  Thread sleep 200L
+  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
+  Thread sleep 200L
 
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
+
+  println("\n>>> IO#run:")
+  println(s"isAuthenticated = ${checkMaggie.run()}")
 
   println("\n>>> IO#runToTry:")
   printAuthTry(checkMaggie.runToTry)

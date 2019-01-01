@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import iomonad.IOApp11TraitWithAbstractRun.IO
+import iomonad.IOApp11TraitWithAbstractRunAndADT.IO
 
 /*
   see blogpost:
@@ -14,17 +14,21 @@ object IOIsRT extends App {
 
   println("\n-----")
 
-  val task1: IO[(Int, Int)] = {
+  val io1: IO[(Int, Int)] = {
     val atomicInt = new AtomicInteger(0)
-    val task: IO[Int] = IO { atomicInt.incrementAndGet }
+    val io: IO[Int] = IO { atomicInt.incrementAndGet }
     for {
-      x <- task
-      y <- task
+      x <- io
+      y <- io
     } yield (x, y)
   }
 
-  // same as future1, but inlined
-  val task2: IO[(Int, Int)] = {
+  io1.runToFuture onComplete println     // Success((1,2))
+
+
+
+  // same as io1, but inlined
+  val io2: IO[(Int, Int)] = {
     val atomicInt = new AtomicInteger(0)
     for {
       x <- IO { atomicInt.incrementAndGet }
@@ -32,8 +36,7 @@ object IOIsRT extends App {
     } yield (x, y)
   }
 
-  task1 runAsync println     // Success((1,2))
-  task2 runAsync println     // Success((1,2))    <-- same result
+  io2.runToFuture onComplete println     // Success((1,2))    <-- same result
 
   Thread.sleep(200L)
   println("-----")
