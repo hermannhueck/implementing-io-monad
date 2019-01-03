@@ -1,17 +1,15 @@
 package iomonad
 
-import cats.Monad
 import iomonad.auth._
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /*
-  Step 19 provides IO.deferFuture which can make the Future lazy.
-  IO.deferFuture(f) is just an alias for IO.defer { IO.fromFuture(f) }
+  Step 12 implements 'IO#failed'.
+  It adds sub type Error to the ADT IO.
  */
-object IOApp19DeferFuture extends App {
+object IOApp12Failed extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -19,7 +17,7 @@ object IOApp19DeferFuture extends App {
 
     protected def run(): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
+    def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -83,15 +81,6 @@ object IOApp19DeferFuture extends App {
         case throwable: Throwable => throwable
       }
     }
-    private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
-      override def run(): A = thunk().run()
-    }
-    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
-      override def run(): B = f(src.run()).run()
-    }
-    private case class FromFuture[A](fa: Future[A]) extends IO[A] {
-      override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
-    }
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
@@ -101,71 +90,90 @@ object IOApp19DeferFuture extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
+  }
 
-    def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
 
-    def fromTry[A](tryy: Try[A]): IO[A] = IO {
-      tryy match {
-        case Failure(t) => throw t
-        case Success(value) => value
+
+  import User._
+  import Password._
+
+  def authenticate(username: String, password: String): IO[Boolean] =
+    for {
+      optUser <- IO(getUsers) map { users =>
+        users.find(_.name == username)
       }
-    }
-
-    def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
-      either match {
-        case Left(t) => throw t
-        case Right(value) => value
+      authenticated <- IO(getPasswords) map { passwords =>
+        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
-    }
-
-    def fromFuture[A](future: Future[A]): IO[A] = FromFuture(future)
-
-    def deferFuture[A](future: => Future[A]): IO[A] =
-      defer(IO.fromFuture(future))
-
-    // Monad instance defined in implicit scope
-    implicit val ioMonad: Monad[IO] = new Monad[IO] {
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
-      override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
-    }
-  }
+    } yield authenticated
 
 
 
-  def futureGetUsers(implicit ec: ExecutionContext): Future[Seq[User]] = {
-    Future {
-      println("===> side effect <===")
-      User.getUsers
-    }
-  }
+  println("\n-----")
 
-  {
-    // EC needed to turn a Future into an IO
-    implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val ec: ExecutionContext = ExecutionContext.global
 
-    println("\n>>> IO.defer(IO.fromFuture(future))")
-    println("----- side effect performed lazily")
-    val io = IO.defer { IO.fromFuture { futureGetUsers } }
+  IO(getUsers) foreach { users => users foreach println }
+  Thread sleep 500L
+  println("-----")
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
-    Thread sleep 1000L
-  }
+  IO(getPasswords) foreach { users => users foreach println }
+  Thread sleep 500L
+  println("-----")
 
-  {
-    // EC needed to turn a Future into an IO
-    implicit val ec: ExecutionContext = ExecutionContext.global
+  println("\n>>> IO#foreach: authenticate:")
+  authenticate("maggie", "maggie-pw") foreach println       //=> true
+  Thread sleep 200L
+  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
+  Thread sleep 200L
+  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
+  Thread sleep 200L
 
-    println("\n>>> IO.deferFuture(future)")
-    println("----- side effect performed lazily")
-    val io = IO.deferFuture { futureGetUsers }
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
-    Thread sleep 1000L
-  }
+  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
+  println("\n>>> IO#runToTry:")
+  printAuthTry(checkMaggie.runToTry)
+
+  println("\n>>> IO#runToEither:")
+  printAuthEither(checkMaggie.runToEither)
+
+  println("\n>>> IO#runToFuture:")
+  checkMaggie.runToFuture onComplete authCallbackTry
+  Thread sleep 500L
+
+  println("\n>>> IO#runOnComplete:")
+  checkMaggie runOnComplete authCallbackTry
+  Thread sleep 500L
+
+  println("\n>>> IO#runAsync:")
+  checkMaggie runAsync authCallbackEither
+  Thread sleep 500L
+
+
+  println("\n-----")
+
+  println(">> source: ioError")
+  val ioError: IO[Int] = IO.raiseError[Int](new IllegalStateException("illegal state"))
+  println(ioError.runToEither)
+  //=> Left(java.lang.IllegalStateException: illegal state)
+
+  println(">> projected:")
+  val failed: IO[Throwable] = ioError.failed
+  println(failed.runToEither)
+  //=> Right(java.lang.IllegalStateException: illegal state)
+
+  println
+
+  println(">> source: ioSuccess")
+  val ioSuccess = IO.pure(5)
+  println(ioSuccess.runToEither)
+  //=> Right(5)
+
+  println(">> projected:")
+  println(ioSuccess.failed.runToEither)
+  //=> Left(java.util.NoSuchElementException: failed)
+
+  Thread sleep 500L
   println("-----\n")
 }

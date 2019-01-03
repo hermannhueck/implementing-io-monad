@@ -1,7 +1,7 @@
-package iomonad
+package iomonad.experimental
 
 import cats.Monad
-import iomonad.auth._
+import iomonad.auth.User
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -14,19 +14,15 @@ import scala.util.{Failure, Success, Try}
  */
 object IOApp20SyncRunMethodsTakeEC extends App {
 
-  sealed trait IO[A] {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    private def run(implicit ec: ExecutionContext): A = this match {
-      case Pure(thunk) => thunk()
-      case Eval(thunk) => thunk()
-      case Suspend(thunk) => thunk().run
-      case FlatMap(src, f) => f(src.run).run
-    }
+    protected def run(implicit ec: ExecutionContext): A
 
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
@@ -44,15 +40,12 @@ object IOApp20SyncRunMethodsTakeEC extends App {
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
-      runAsync(ea => callback(ea.toTry)) // convert Try based callback into an Either based callback
+      runToFuture onComplete callback
 
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
-      runAsync0(ec, callback)
-
-    private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
-      ec.execute(() => callback(runToEither(ec)))
+      runOnComplete(tryy => callback(tryy.toEither))
 
     // Triggers async evaluation of this IO, executing the given function for the generated result.
     // WARNING: Will not be called if this IO is never completed or if it is completed with a failure.
@@ -63,17 +56,48 @@ object IOApp20SyncRunMethodsTakeEC extends App {
         case Left(ex) => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
+
+    // Returns a failed projection of this task.
+    //
+    // The failed projection is a Task holding a value of type Throwable, emitting the error yielded by the source,
+    // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
+    def failed: IO[Throwable] = Failed(this)
   }
 
   object IO {
 
-    private case class Pure[A](thunk: () => A) extends IO[A]
-    private case class Eval[A](thunk: () => A) extends IO[A]
-    private case class Suspend[A](thunk: () => IO[A]) extends IO[A]
-    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B]
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = thunk()
+    }
+    private case class Error[A](exception: Throwable) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = throw exception
+    }
+    private case class Failed[A](io: IO[A]) extends IO[Throwable] {
+      override def run(implicit ec: ExecutionContext): Throwable = try {
+        io.run
+        throw new NoSuchElementException("failed")
+      } catch {
+        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+        case throwable: Throwable => throwable
+      }
+    }
+    private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = thunk().run
+    }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(implicit ec: ExecutionContext): B = f(src.run).run
+    }
+    private case class FromFuture[A](fa: Future[A]) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
+    }
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
+
+    def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
@@ -96,16 +120,13 @@ object IOApp20SyncRunMethodsTakeEC extends App {
       }
     }
 
-    def fromFuture[A](fa: Future[A]): IO[A] =
-      fa.value match {
-        case Some(try0) => fromTry(try0)
-        case None => IO.eval { Await.result(fa, Duration.Inf) } // BLOCKING!!!
-      }
+    def fromFuture[A](future: Future[A]): IO[A] = FromFuture(future)
 
-    def deferFuture[A](fa: => Future[A]): IO[A] =
-      defer(IO.fromFuture(fa))
+    def deferFuture[A](future: => Future[A]): IO[A] =
+      defer(IO.fromFuture(future))
 
-    implicit def ioMonad: Monad[IO] = new Monad[IO] {
+    // Monad instance defined in implicit scope
+    implicit val ioMonad: Monad[IO] = new Monad[IO] {
       override def pure[A](value: A): IO[A] = IO.pure(value)
       override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???

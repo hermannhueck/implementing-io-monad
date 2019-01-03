@@ -8,17 +8,16 @@ import scala.util.Try
 /*
   In step 8 I added three async run* methods: runToFuture, runOnComplete, runAsync.
   All three accept an implicit ExecutionContext.
-
-  'runToFuture' runs 'run' in a Future and returns it.
-  'runOnComplete' takes a Try based callback and invokes a Runnable with 'runToTry' in the ExecutionContext.
-  'runAsync' takes a Either based callback and invokes a Runnable with 'runToEither' in the ExecutionContext.
  */
 object IOApp08RunAsync extends App {
 
   case class IO[A](run: () => A) {
 
-    def map[B](f: A => B): IO[B] = IO { () => f(run()) }
+    import IO._
+
     def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
@@ -33,32 +32,25 @@ object IOApp08RunAsync extends App {
     // returns a Future that runs the task eagerly on another thread
     def runToFuture(implicit ec: ExecutionContext): Future[A] = Future { run() }
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Try based callback
+    // takes a Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
-      ec.execute(new Runnable {
-        override def run(): Unit = callback(runToTry)
-      })
+      runToFuture onComplete callback
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Either based callback
+    // takes a Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
-      ec.execute(new Runnable {
-        override def run(): Unit = callback(runToEither)
-      })
+      runOnComplete(tryy => callback(tryy.toEither))
   }
 
   object IO {
-    def pure[A](a: A): IO[A] = IO { () => a }
-    def eval[A](a: => A): IO[A] = IO { () => a }
+    def pure[A](value: A): IO[A] = IO { () => value }
+    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
   }
 
 
 
-  import Password._
   import User._
+  import Password._
 
-  // authenticate impl with for-comprehension
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
       optUser <- IO.eval(getUsers) map { users =>
@@ -88,19 +80,24 @@ object IOApp08RunAsync extends App {
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
   println("\n>>> IO#run:")
-  println(checkMaggie.run())                  //=> true, may throw an Exception
+  val value: Boolean = checkMaggie.run()
+  println(value)
+  //=> true, may throw an Exception
 
-  println("\n>>> IO#runToTry:")               //=> true
-  printAuthTry(checkMaggie.runToTry)
+  println("\n>>> IO#runToTry:")
+  val tryy: Try[Boolean] = checkMaggie.runToTry
+  println(tryy)
+  //=> Success(true)
 
   println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)    //=> true
+  val either: Either[Throwable, Boolean] = checkMaggie.runToEither
+  println(either)
+  //=> Right(true)
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
   println("\n>>> IO#runToFuture:")
-  val future: Future[Boolean] = checkMaggie.runToFuture
-  future onComplete authCallbackTry
+  checkMaggie.runToFuture onComplete authCallbackTry
   Thread sleep 500L
 
   println("\n>>> IO#runOnComplete:")

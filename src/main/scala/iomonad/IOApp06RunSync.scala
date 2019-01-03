@@ -3,19 +3,19 @@ package iomonad
 import scala.util.Try
 
 /*
-  The original IO#run() might thow an exception when run.
+  The original IO#run() might throw an exception when run.
   In step 6 I added two additional synchronous run* methods which do not throw an exception:
   'runToTry' and 'runToEither'.
  */
 object IOApp06RunSync extends App {
 
-  // IO[A] wraps a Function0[A].
-  // With map, flatMap and pure it is a Monad usable in a for-comprehension
-  //
   case class IO[A](run: () => A) {
 
-    def map[B](f: A => B): IO[B] = IO { () => f(run()) }
+    import IO._
+
     def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
@@ -27,15 +27,14 @@ object IOApp06RunSync extends App {
   }
 
   object IO {
-    def pure[A](a: A): IO[A] = IO { () => a }
-    def eval[A](a: => A): IO[A] = IO { () => a }
+    def pure[A](value: A): IO[A] = IO { () => value }
+    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
   }
+
+
 
   println("\n-----")
 
-  // Program definition WITHOUT side effects. This program does nothing.
-  // It is just a bunch of monadically composed functions which do not execute.
-  //
   val program: IO[Unit] = for {
     welcome <- IO.pure("Welcome to Scala!")
     _       <- IO.eval { print(s"$welcome  What's your name?   ") }
@@ -44,11 +43,17 @@ object IOApp06RunSync extends App {
   } yield ()
 
   // Running the program's encapsulated Function0 produces the side effects.
-  val v1: Unit = program.run()                                  // run sync, may throw an exception
+  val value: Unit = program.run()                                 // run sync, may throw an exception
+  println(value)
+  //=> ()
 
-  val v2: Try[Unit] = program.runToTry                               // run sync
+  val tryy: Try[Unit] = program.runToTry                          // run sync
+  println(tryy)
+  //=> Success(())
 
-  val v3: Either[Throwable, Unit] = program.runToEither                            // run sync
+  val either: Either[Throwable, Unit] = program.runToEither       // run sync
+  println(either)
+  //=> Right(())
 
   Thread.sleep(200L)
   println("-----\n")

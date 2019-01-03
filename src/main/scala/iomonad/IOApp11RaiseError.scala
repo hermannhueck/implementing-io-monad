@@ -6,29 +6,20 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /*
-  Step 12 makes the abstract 'run' method in trait IO concrete.
-  It is implemented as a pattern match over the subtypes of the ADT: Pure and Eval.
-
-  As 'run' is now a concrete method in trait IO the Function0[A] parameter
-  can no longer have the same name 'run' in order not ot override the base traits method 'run'.
-  I called it 'thunk'.
-
-  The method IO#run can now be made private.
-  The other IO#run* methods are provided for public use.
+  Step 11 implements 'IO.raiseError'.
+  It adds sub type Error to the ADT IO.
  */
-object IOApp12ConcreteRun extends App {
+object IOApp11RaiseError extends App {
 
-  sealed trait IO[A] {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    private def run(): A = this match {
-      case Pure(thunk) => thunk()
-      case Eval(thunk) => thunk()
-    }
+    protected def run(): A
 
-    def map[B](f: A => B): IO[B] = IO { f(run()) }
     def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
@@ -46,15 +37,12 @@ object IOApp12ConcreteRun extends App {
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
-      runAsync(ea => callback(ea.toTry)) // convert Try based callback into an Either based callback
+      runToFuture onComplete callback
 
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
-      runAsync0(ec, callback)
-
-    private def runAsync0(ec: ExecutionContext, callback: Either[Throwable, A] => Unit): Unit =
-      ec.execute(() => callback(runToEither))
+      runOnComplete(tryy => callback(tryy.toEither))
 
     // Triggers async evaluation of this IO, executing the given function for the generated result.
     // WARNING: Will not be called if this IO is never completed or if it is completed with a failure.
@@ -69,11 +57,20 @@ object IOApp12ConcreteRun extends App {
 
   object IO {
 
-    private case class Pure[A](thunk: () => A) extends IO[A]
-    private case class Eval[A](thunk: () => A) extends IO[A]
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Error[A](exception: Throwable) extends IO[A] {
+      override def run(): A = throw exception
+    }
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
+
+    def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
@@ -82,10 +79,9 @@ object IOApp12ConcreteRun extends App {
 
 
 
-  import Password._
   import User._
+  import Password._
 
-  // authenticate impl with for-comprehension
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
       optUser <- IO(getUsers) map { users =>
@@ -139,5 +135,13 @@ object IOApp12ConcreteRun extends App {
   checkMaggie runAsync authCallbackEither
   Thread sleep 500L
 
+
+  println("\n-----")
+
+  val ioError: IO[Int] = IO.raiseError[Int](new IllegalStateException("illegal state"))
+  println(ioError.runToEither)
+  //=> Left(java.lang.IllegalStateException: illegal state)
+
+  Thread sleep 500L
   println("-----\n")
 }

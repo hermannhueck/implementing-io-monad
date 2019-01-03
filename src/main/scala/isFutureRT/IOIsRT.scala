@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import iomonad.IOApp11TraitWithAbstractRunAndADT.IO
+import iomonad.IOApp10ADT.IO
 
 /*
   see blogpost:

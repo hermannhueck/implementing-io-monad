@@ -14,13 +14,13 @@ import scala.util.Try
  */
 object IOApp07AuthenticateMaggie extends App {
 
-  // IO[A] wraps a Function0[A].
-  // With map, flatMap and pure it is a Monad usable in a for-comprehension
-  //
   case class IO[A](run: () => A) {
 
-    def map[B](f: A => B): IO[B] = IO { () => f(run()) }
+    import IO._
+
     def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
@@ -32,24 +32,24 @@ object IOApp07AuthenticateMaggie extends App {
   }
 
   object IO {
-    def pure[A](a: A): IO[A] = IO { () => a }
-    def eval[A](a: => A): IO[A] = IO { () => a }
+    def pure[A](value: A): IO[A] = IO { () => value }
+    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
   }
 
 
 
-  import Password._
   import User._
+  import Password._
 
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
       optUser <- IO.eval(getUsers) map { users =>
         users.find(_.name == username)
       }
-      authenticated <- IO.eval(getPasswords) map { passwords =>
+      isAuthenticated <- IO.eval(getPasswords) map { passwords =>
         optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
-    } yield authenticated
+    } yield isAuthenticated
 
 
 
@@ -70,13 +70,19 @@ object IOApp07AuthenticateMaggie extends App {
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
   println("\n>>> IO#run:")
-  println(checkMaggie.run())                  //=> true, may throw an Exception
+  val value: Boolean = checkMaggie.run()
+  println(value)
+  //=> true, may throw an Exception
 
   println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)          //=> true
+  val tryy: Try[Boolean] = checkMaggie.runToTry
+  println(tryy)
+  //=> Success(true)
 
   println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)    //=> true
+  val either: Either[Throwable, Boolean] = checkMaggie.runToEither
+  println(either)
+  //=> Right(true)
 
   println("-----\n")
 }
