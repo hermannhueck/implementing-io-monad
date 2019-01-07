@@ -1,17 +1,17 @@
 package iomonad
 
-import cats.Monad
-import iomonad.auth._
+import cats.MonadError
+import cats.data.EitherT
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 /*
   Step 19 provides IO.deferFuture which can make the Future lazy.
   IO.deferFuture(f) is just an alias for IO.defer { IO.fromFuture(f) }
  */
-object IOApp19DeferFuture extends App {
+object IOApp23Attempt extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -20,13 +20,17 @@ object IOApp19DeferFuture extends App {
     protected def run(): A
 
     def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
+
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
 
     // runs on the current Thread returning Try[A]
-    def runToTry: Try[A] = Try { run() }
+    def runToTry: Try[A] = Try {
+      run()
+    }
 
     // runs on the current Thread returning Either[Throwable, A]
     def runToEither: Either[Throwable, A] = runToTry.toEither
@@ -34,7 +38,9 @@ object IOApp19DeferFuture extends App {
     // ----- impure async run* methods
 
     // returns a Future that runs the task eagerly on another thread
-    def runToFuture(implicit ec: ExecutionContext): Future[A] = Future { run() }
+    def runToFuture(implicit ec: ExecutionContext): Future[A] = Future {
+      run()
+    }
 
     // runs the IO in a Runnable on the given ExecutionContext
     // and then executes the specified Try based callback
@@ -61,6 +67,59 @@ object IOApp19DeferFuture extends App {
     // The failed projection is a Task holding a value of type Throwable, emitting the error yielded by the source,
     // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
     def failed: IO[Throwable] = Failed(this)
+
+    def onErrorHandleWith[AA >: A](f: Throwable => IO[AA]): IO[AA] = IO {
+      this.runToEither match {
+        case Left(t) => f(t)
+        case Right(a) => IO.pure(a)
+      }
+    }.flatten
+
+    def onErrorHandle[AA >: A](f: Throwable => AA): IO[AA] =
+      onErrorHandleWith(t => IO.pure(f(t)))
+
+    def onErrorRecoverWith[AA >: A](pf: PartialFunction[Throwable, IO[AA]]): IO[AA] =
+      onErrorHandleWith { t => pf.applyOrElse(t, raiseError) }
+
+    def onErrorRecover[AA >: A](pf: PartialFunction[Throwable, AA]): IO[AA] =
+      onErrorHandle { t => pf.applyOrElse(t, throw _: Throwable) }
+
+    def onErrorRestartIf(p: Throwable => Boolean): IO[A] =
+      onErrorHandleWith { t =>
+        if (p(t))
+          onErrorRestartIf(p)
+        else
+          IO.raiseError(t)
+      }
+
+    def onErrorRestart(maxRetries: Long): IO[A] =
+      onErrorHandleWith { t =>
+        if (maxRetries > 0)
+          onErrorRestart(maxRetries - 1)
+        else
+          raiseError(t)
+      }
+
+    def onErrorFallbackTo[B >: A](that: IO[B]): IO[B] =
+      onErrorHandleWith(_ => that)
+
+    def attempt[AA >: A]: IO[Either[Throwable, AA]] =
+      this
+        .map { t => Right(t): Either[Throwable, A] }
+        .onErrorHandleWith { e => IO.pure(Left(e))}
+
+    // Turns a successful value into an error if it does not satisfy a given predicate. See cats.MonadError
+    def ensure(error: => Throwable)(predicate: A => Boolean): IO[A] =
+      ensureOr(_ => error)(predicate)
+
+    // Turns a successful value into an error specified by the `error` function if it does not satisfy a given predicate. See cats.MonadError
+    def ensureOr(error: A => Throwable)(predicate: A => Boolean): IO[A] = IO {
+      this.runToEither match {
+        case Left(throwable) => raiseError(throwable)
+        case Right(value) if predicate(value) => pure(value)
+        case Right(value) => raiseError(error(value))
+      }
+    }.flatten
   }
 
   object IO {
@@ -124,48 +183,59 @@ object IOApp19DeferFuture extends App {
     def deferFuture[A](future: => Future[A]): IO[A] =
       defer(IO.fromFuture(future))
 
-    // Monad instance defined in implicit scope
-    implicit val ioMonad: Monad[IO] = new Monad[IO] {
+    // MonadError instance defined in implicit scope
+    implicit def ioMonad: MonadError[IO, Throwable] = new MonadError[IO, Throwable] {
+
+      // Monad
       override def pure[A](value: A): IO[A] = IO.pure(value)
       override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
+
+      // MonadError
+      override def raiseError[A](e: Throwable): IO[A] = raiseError(e)
+      override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] = fa onErrorHandleWith f
+    }
+
+    implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
+
+      def handleErrorWith(f: Throwable => IO[A]): IO[A] = ioa onErrorHandleWith f
+      def handleError(f: Throwable => A): IO[A] = ioa onErrorHandle f
+      def recoverWith(pf: PartialFunction[Throwable, IO[A]]): IO[A] = ioa onErrorRecoverWith pf
+      def recover(pf: PartialFunction[Throwable, A]): IO[A] = ioa onErrorRecover pf
     }
   }
 
 
+  val r = Random
 
-  def futureGetUsers(implicit ec: ExecutionContext): Future[Seq[User]] = {
-    Future {
-      println("===> side effect <===")
-      User.getUsers
-    }
+  def even(num: Int): Boolean = num % 2 == 0
+  def odd(num: Int): Boolean = !even(num)
+
+  val io = IO {
+    val num = r.nextInt(100)
+    if (even(num))
+      num
+    else
+      throw new IllegalStateException("odd number")
   }
 
-  {
-    // EC needed to turn a Future into an IO
-    implicit val ec: ExecutionContext = ExecutionContext.global
+  println("\n----- attempt:")
 
-    println("\n>>> IO.defer(IO.fromFuture(future))")
-    println("----- side effect performed lazily")
-    val io = IO.defer { IO.fromFuture { futureGetUsers } }
+  val outer: Either[Throwable, Either[Throwable, Int]] = io.attempt.runToEither
+  println(outer)
+  val inner = outer.flatten
+  println(inner)
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
-    Thread sleep 1000L
-  }
+  Thread sleep 500L
+  println("\n----- ensure:")
 
-  {
-    // EC needed to turn a Future into an IO
-    implicit val ec: ExecutionContext = ExecutionContext.global
+  println(io.ensure(new IllegalStateException("not divisable by 10"))(_ % 10 == 0).runToEither)
 
-    println("\n>>> IO.deferFuture(future)")
-    println("----- side effect performed lazily")
-    val io = IO.deferFuture { futureGetUsers }
+  Thread sleep 500L
+  println("\n----- ensureOr:")
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
-    Thread sleep 1000L
-  }
+  println(io.ensureOr(num => new IllegalStateException(s"$num not divisable by 10"))(_ % 10 == 0).runToEither)
 
+  Thread sleep 500L
   println("-----\n")
 }

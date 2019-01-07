@@ -91,7 +91,7 @@ object IOApp14MonadInstance extends App {
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
 
-    def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
+    def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
