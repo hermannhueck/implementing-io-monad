@@ -1,15 +1,16 @@
 package iomonad
 
 import cats.MonadError
+import iomonad.effect.Bracket
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /*
   Step 23 adds attempt, ensure and ensureOr.
  */
-object IOApp23AttemptEnsure extends App {
+object IOApp24Bracket extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -118,6 +119,17 @@ object IOApp23AttemptEnsure extends App {
         case Right(value) => raiseError(error(value))
       }
     }.flatten
+
+    def bracket[B](use: A => IO[B])(release: A => IO[Unit]): IO[B] = IO {
+      this flatMap { resource =>
+          try {
+            import cats.syntax.apply._
+            use(resource) <* release(resource)
+          } finally {
+            release(resource)
+          }
+      }
+    }.flatten
   }
 
   object IO {
@@ -182,8 +194,8 @@ object IOApp23AttemptEnsure extends App {
     def deferFuture[A](future: => Future[A]): IO[A] =
       defer(IO.fromFuture(future))
 
-    // MonadError instance defined in implicit scope
-    implicit def ioMonad: MonadError[IO, Throwable] = new MonadError[IO, Throwable] {
+    // Bracket instance defined in implicit scope
+    implicit def ioMonad: Bracket[IO, Throwable] = new Bracket[IO, Throwable] {
 
       // Monad
       override def pure[A](value: A): IO[A] = IO.pure(value)
@@ -193,6 +205,9 @@ object IOApp23AttemptEnsure extends App {
       // MonadError
       override def raiseError[A](e: Throwable): IO[A] = raiseError(e)
       override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] = fa onErrorHandleWith f
+
+      // Bracket
+      override def bracket[A, B](acquire: IO[A])(use: A => IO[B])(release: A => IO[Unit]): IO[B] = acquire.bracket(use)(release)
     }
 
     implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
@@ -205,36 +220,22 @@ object IOApp23AttemptEnsure extends App {
   }
 
 
-  val r = Random
+  println("\n-----")
+  println(">>> bracket:")
 
-  def even(num: Int): Boolean = num % 2 == 0
-  def odd(num: Int): Boolean = !even(num)
+  implicit val ec: ExecutionContext = ExecutionContext.global
 
-  val io = IO {
-    val num = r.nextInt(100)
-    if (even(num))
-      num
-    else
-      throw new IllegalStateException("odd number")
+  val acquire: IO[Unit] = IO {
+    println("Resource acquired")
   }
 
-  println("\n----- attempt:")
-
-  val outer: Either[Throwable, Either[Throwable, Int]] = io.attempt.runToEither
-  println(outer)
-  val inner = outer.flatten
-  println(inner)
-
-  Thread sleep 500L
-  println("\n----- ensure:")
-
-  println(io.ensure(new IllegalStateException("not divisable by 10"))(_ % 10 == 0).runToEither)
+  acquire.bracket { resource =>
+    IO { println("Resource used") }
+  } { resource =>
+    IO { println(s"Resource released") }
+  } foreach { _ => () }
 
   Thread sleep 500L
-  println("\n----- ensureOr:")
 
-  println(io.ensureOr(num => new IllegalStateException(s"$num not divisable by 10"))(_ % 10 == 0).runToEither)
-
-  Thread sleep 500L
   println("-----\n")
 }
