@@ -2,9 +2,10 @@ package isFutureRT
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import iomonad.IOApp10RunAsync.IO
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import iomonad.IOApp10ADT.IO
 
 /*
   see blogpost:
