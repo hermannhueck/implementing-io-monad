@@ -1,18 +1,21 @@
 package iomonad
 
 import cats.Monad
-import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
 import scala.util.Try
 
 /*
-  In step 16 I added the subtype FlatMap to the ADT IO and expanded the 'run' method accordingly.
-  The Method IO#flatMap just creates an instance of FlatMap.
-  IO#map is implemented in terms of IO#flatMap and IO.pure.
-  Now IO is trampolined and hence stack-safe.
+  Step 15 defines a monad instance for IO.
+  It also abstracts the example 12a to use any Monad instead of Task.
+
+  sumIO becomes sumF[F[_]: Monad]
+  fibonacciIO becomes fibonacciF[F[_]: Monad]
+  factorialIO becomes factorialF[F[_]: Monad]
+  computeIO becomes computeF[F[_]: Monad]
  */
-object IOApp16ADTWithFlatMap extends App {
+object IOApp15MonadInstance extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -37,13 +40,11 @@ object IOApp16ADTWithFlatMap extends App {
     // returns a Future that runs the task eagerly on another thread
     def runToFuture(implicit ec: ExecutionContext): Future[A] = Future { run() }
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Try based callback
+    // takes a Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
       runToFuture onComplete callback
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Either based callback
+    // takes a Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runOnComplete(tryy => callback(tryy.toEither))
 
@@ -72,6 +73,9 @@ object IOApp16ADTWithFlatMap extends App {
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(): A = throw exception
     }
@@ -84,12 +88,6 @@ object IOApp16ADTWithFlatMap extends App {
         case throwable: Throwable => throwable
       }
     }
-    private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
-      override def run(): A = thunk().run()
-    }
-    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
-      override def run(): B = f(src.run()).run()
-    }
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
@@ -99,9 +97,6 @@ object IOApp16ADTWithFlatMap extends App {
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
-
-    def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
 
     // Monad instance defined in implicit scope
     implicit val ioMonad: Monad[IO] = new Monad[IO] {
@@ -113,80 +108,86 @@ object IOApp16ADTWithFlatMap extends App {
 
 
 
-  import User._
-  import Password._
+  import cats.syntax.flatMap._
+  import cats.syntax.functor._
 
-  def authenticate(username: String, password: String): IO[Boolean] =
+  def sumF[F[_]: Monad](from: Int, to: Int): F[Int] =
+    Monad[F].pure { sumOfRange(from, to) }
+
+  def fibonacciF[F[_]: Monad](num: Int): F[BigInt] =
+    Monad[F].pure { fibonacci(num) }
+
+  def factorialF[F[_]: Monad](num: Int): F[BigInt] =
+    Monad[F].pure { factorial(num) }
+
+  def computeF[F[_]: Monad](from: Int, to: Int): F[BigInt] =
     for {
-      optUser <- IO(getUsers) map { users =>
-        users.find(_.name == username)
-      }
-      authenticated <- IO(getPasswords) map { passwords =>
-        optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
-      }
-    } yield authenticated
-
+      x <- sumF(from, to)
+      y <- fibonacciF(x)
+      z <- factorialF(y.intValue)
+    } yield z
 
 
   println("\n-----")
 
+  def computeWithIO(): Unit = {
 
-  implicit val ec: ExecutionContext = ExecutionContext.global
+    import scala.concurrent.ExecutionContext.Implicits.global
 
-  IO(getUsers) foreach { users => users foreach println }
-  Thread sleep 500L
-  println("-----")
+    println(">> reify F[] with IO")
+    val io: IO[BigInt] = computeF[IO](1, 4)
 
-  IO(getPasswords) foreach { users => users foreach println }
-  Thread sleep 500L
-  println("-----")
+    io foreach { result => println(s"result = $result") }
+    //=> 6227020800
 
-  println("\n>>> IO#foreach: authenticate:")
-  authenticate("maggie", "maggie-pw") foreach println       //=> true
-  Thread sleep 200L
-  authenticate("maggieXXX", "maggie-pw") foreach println    //=> false
-  Thread sleep 200L
-  authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
-  Thread sleep 200L
+    Thread sleep 500L
+  }
 
+  def computeWithId(): Unit = {
 
-  val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
+    import cats.Id
 
-  println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
+    println(">> reify F[] with cats.Id")
+    val result: Id[BigInt] = computeF[Id](1, 4)
 
-  println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
+    println(s"result = $result")
+    //=> 6227020800
 
-  println("\n>>> IO#runToFuture:")
-  checkMaggie.runToFuture onComplete authCallbackTry
-  Thread sleep 500L
+    Thread sleep 500L
+  }
 
-  println("\n>>> IO#runOnComplete:")
-  checkMaggie runOnComplete authCallbackTry
-  Thread sleep 500L
+  def computeWithOption(): Unit = {
 
-  println("\n>>> IO#runAsync:")
-  checkMaggie runAsync authCallbackEither
-  Thread sleep 500L
+    import cats.instances.option._
 
-  println("-----")
+    println(">> reify F[] with Option")
+    val maybeResult: Option[BigInt] = computeF[Option](1, 4)
 
-  println("\n>>> IO.pure(...):")
-  val io1 = IO.pure { println("immediate side effect"); 5 }
-  //=> immediate side effect
-  Thread sleep 2000L
-  io1 foreach println
-  //=> 5
-  Thread sleep 2000L
+    maybeResult foreach { result => println(s"result = $result") }
+    //=> 6227020800
 
-  println("\n>>> IO.defer(IO.pure(...)):")
-  val io2 = IO.defer { IO.pure { println("deferred side effect"); 5 } }
-  Thread sleep 2000L
-  io2 foreach println
-  //=> deferred side effect
-  //=> 5
-  Thread sleep 2000L
+    Thread sleep 500L
+  }
+
+  def computeWithFuture(): Unit = {
+
+    import scala.concurrent.{Future, ExecutionContext}
+    import ExecutionContext.Implicits.global
+    import cats.instances.future._
+
+    println(">> reify F[] with Future")
+    val future: Future[BigInt] = computeF[Future](1, 4)
+
+    future foreach { result => println(s"result = $result") }
+    //=> 6227020800
+
+    Thread sleep 500L
+  }
+
+  computeWithIO()
+  computeWithId()
+  computeWithOption()
+  computeWithFuture()
 
   println("-----\n")
 }

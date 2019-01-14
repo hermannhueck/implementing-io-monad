@@ -6,18 +6,22 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /*
-  Step 9 adds the async 'foreach' method to IO.
+  Step 11 makes the run method protected as we don't want to provide it in the API of IO.
+
+  This step it adds the async 'foreach' method to IO.
   It executes asynchronously and requires an implicit ExecutionContext.
 
   'foreach' only processes successful results, errors are reported to the ExecutionContext.
  */
-object IOApp09Foreach extends App {
+object IOApp11Foreach extends App {
 
-  case class IO[A](run: () => A) {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    protected def run(): A
+
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -34,13 +38,11 @@ object IOApp09Foreach extends App {
     // returns a Future that runs the task eagerly on another thread
     def runToFuture(implicit ec: ExecutionContext): Future[A] = Future { run() }
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Try based callback
+    // takes a Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
       runToFuture onComplete callback
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Either based callback
+    // takes a Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runOnComplete(tryy => callback(tryy.toEither))
 
@@ -56,8 +58,23 @@ object IOApp09Foreach extends App {
   }
 
   object IO {
-    def pure[A](value: A): IO[A] = IO { () => value }
-    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
+
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
+
+    def pure[A](a: A): IO[A] = Pure { () => a }
+    def now[A](a: A): IO[A] = pure(a)
+
+    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def delay[A](a: => A): IO[A] = eval(a)
+    def apply[A](a: => A): IO[A] = eval(a)
   }
 
 
@@ -67,10 +84,10 @@ object IOApp09Foreach extends App {
 
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
-      optUser <- IO.eval(getUsers) map { users =>
+      optUser <- IO(getUsers) map { users =>
         users.find(_.name == username)
       }
-      isAuthenticated <- IO.eval(getPasswords) map { passwords =>
+      isAuthenticated <- IO(getPasswords) map { passwords =>
         optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
     } yield isAuthenticated
@@ -81,11 +98,11 @@ object IOApp09Foreach extends App {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  IO.eval(getUsers) foreach { users => users foreach println }
+  IO(getUsers) foreach { users => users foreach println }
   Thread sleep 500L
   println("-----")
 
-  IO.eval(getPasswords) foreach { users => users foreach println }
+  IO(getPasswords) foreach { users => users foreach println }
   Thread sleep 500L
   println("-----")
 
@@ -101,10 +118,14 @@ object IOApp09Foreach extends App {
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
   println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
+  val tryy: Try[Boolean] = checkMaggie.runToTry
+  println(tryy)
+  //=> Success(true)
 
   println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
+  val either: Either[Throwable, Boolean] = checkMaggie.runToEither
+  println(either)
+  //=> Right(true)
 
   println("\n>>> IO#runToFuture:")
   checkMaggie.runToFuture onComplete authCallbackTry

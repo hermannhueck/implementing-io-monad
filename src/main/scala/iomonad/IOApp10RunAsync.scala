@@ -6,16 +6,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /*
-  In step 8 I added three async run* methods: runToFuture, runOnComplete, runAsync.
+  In step 10 I added three async run* methods: runToFuture, runOnComplete, runAsync.
   All three accept an implicit ExecutionContext.
  */
-object IOApp08RunAsync extends App {
+object IOApp10RunAsync extends App {
 
-  case class IO[A](run: () => A) {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def run(): A
+
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -42,8 +44,23 @@ object IOApp08RunAsync extends App {
   }
 
   object IO {
-    def pure[A](value: A): IO[A] = IO { () => value }
-    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
+
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
+
+    def pure[A](a: A): IO[A] = Pure { () => a }
+    def now[A](a: A): IO[A] = pure(a)
+
+    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def delay[A](a: => A): IO[A] = eval(a)
+    def apply[A](a: => A): IO[A] = eval(a)
   }
 
 
@@ -53,10 +70,10 @@ object IOApp08RunAsync extends App {
 
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
-      optUser <- IO.eval(getUsers) map { users =>
+      optUser <- IO(getUsers) map { users =>
         users.find(_.name == username)
       }
-      isAuthenticated <- IO.eval(getPasswords) map { passwords =>
+      isAuthenticated <- IO(getPasswords) map { passwords =>
         optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
     } yield isAuthenticated
@@ -65,10 +82,10 @@ object IOApp08RunAsync extends App {
 
   println("\n-----")
 
-  IO.eval(getUsers).run() foreach println
+  IO(getUsers).run() foreach println
   println("-----")
 
-  IO.eval(getPasswords).run() foreach println
+  IO(getPasswords).run() foreach println
   println("-----")
 
   println("\n>>> IO#run: authenticate:")

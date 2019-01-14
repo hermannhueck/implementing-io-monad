@@ -92,6 +92,7 @@ object IOApp18FromFuture extends App {
     }
     private case class FromFuture[A](fa: Future[A]) extends IO[A] {
       override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
+      // A solution of this problem would require a redesign of this simple IO Monod, which doesn't really support async computations.
     }
 
     def pure[A](a: A): IO[A] = Pure { () => a }

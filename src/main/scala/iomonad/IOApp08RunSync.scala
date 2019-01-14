@@ -4,16 +4,18 @@ import scala.util.Try
 
 /*
   The original IO#run() might throw an exception when run.
-  In step 6 I added two additional synchronous run* methods which do not throw an exception:
+  In step 8 I added two additional synchronous run* methods which do not throw an exception:
   'runToTry' and 'runToEither'.
  */
-object IOApp06RunSync extends App {
+object IOApp08RunSync extends App {
 
-  case class IO[A](run: () => A) {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def run(): A
+
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -27,19 +29,32 @@ object IOApp06RunSync extends App {
   }
 
   object IO {
-    def pure[A](value: A): IO[A] = IO { () => value }
-    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
+
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
+
+    def pure[A](a: A): IO[A] = Pure { () => a }
+    def now[A](a: A): IO[A] = pure(a)
+
+    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def delay[A](a: => A): IO[A] = eval(a)
+    def apply[A](a: => A): IO[A] = eval(a)
   }
-
-
 
   println("\n-----")
 
   val program: IO[Unit] = for {
     welcome <- IO.pure("Welcome to Scala!")
-    _       <- IO.eval { print(s"$welcome  What's your name?   ") }
-    name    <- IO.eval { scala.io.StdIn.readLine }
-    _       <- IO.eval { println(s"Well hello, $name!") }
+    _       <- IO { print(s"$welcome  What's your name?   ") }
+    name    <- IO { scala.io.StdIn.readLine }
+    _       <- IO { println(s"Well hello, $name!") }
   } yield ()
 
   // Running the program's encapsulated Function0 produces the side effects.

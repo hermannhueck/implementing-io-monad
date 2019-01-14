@@ -7,9 +7,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Random, Success, Try}
 
 /*
-  Step 22 adds onErrorRestartIf, onErrorRestart and onErrorFallbackTo.
+  Step 23 adds attempt, ensure and ensureOr.
  */
-object IOApp22OnErrorRestartIf extends App {
+object IOApp23AttemptEnsure extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -100,6 +100,24 @@ object IOApp22OnErrorRestartIf extends App {
 
     def onErrorFallbackTo[B >: A](that: IO[B]): IO[B] =
       onErrorHandleWith(_ => that)
+
+    def attempt[AA >: A]: IO[Either[Throwable, AA]] =
+      this
+        .map { t => Right(t): Either[Throwable, A] }
+        .onErrorHandleWith { e => IO.pure(Left(e))}
+
+    // Turns a successful value into an error if it does not satisfy a given predicate. See cats.MonadError
+    def ensure(error: => Throwable)(predicate: A => Boolean): IO[A] =
+      ensureOr(_ => error)(predicate)
+
+    // Turns a successful value into an error specified by the `error` function if it does not satisfy a given predicate. See cats.MonadError
+    def ensureOr(error: A => Throwable)(predicate: A => Boolean): IO[A] = IO {
+      this.runToEither match {
+        case Left(throwable) => raiseError(throwable)
+        case Right(value) if predicate(value) => pure(value)
+        case Right(value) => raiseError(error(value))
+      }
+    }.flatten
   }
 
   object IO {
@@ -200,22 +218,22 @@ object IOApp22OnErrorRestartIf extends App {
       throw new IllegalStateException("odd number")
   }
 
-  println("\n----- onErrorRestartIf:")
+  println("\n----- attempt:")
 
-  io.onErrorRestartIf {
-    case _: IllegalStateException => true
-    case _ => false
-  }.runToEither foreach println
-
-  Thread sleep 500L
-  println("\n----- onErrorRestart:")
-
-  io.onErrorRestart(3).runToEither foreach println
+  val outer: Either[Throwable, Either[Throwable, Int]] = io.attempt.runToEither
+  println(outer)
+  val inner = outer.flatten
+  println(inner)
 
   Thread sleep 500L
-  println("\n----- onErrorFallbackTo:")
+  println("\n----- ensure:")
 
-  io.onErrorFallbackTo(IO.pure(0)).runToEither foreach println
+  println(io.ensure(new IllegalStateException("not divisable by 10"))(_ % 10 == 0).runToEither)
+
+  Thread sleep 500L
+  println("\n----- ensureOr:")
+
+  println(io.ensureOr(num => new IllegalStateException(s"$num not divisable by 10"))(_ % 10 == 0).runToEither)
 
   Thread sleep 500L
   println("-----\n")

@@ -3,22 +3,13 @@ package iomonad
 import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
-  Step 10 converts case class IO into trait IO with the abstract method 'run'.
-  IO is an ADT with the two subtypes 'Pure' and 'Eval'
-
-  IO.pure creates a Pure instance instead of an IO instance.
-  IO.now is an alias for pure.
-  IO.eval creates a Eval instance instead of an IO instance.
-  IO.delay is an alias for IO.eval.
-  IO.apply is an alias for IO.eval.
-
-  Having apply it is more natural to create new IO instances.
-  We can just use IO { thunk } instead of IO.eval { thunk }
+  Step 13 implements 'IO#failed'.
+  It adds sub type Error to the ADT IO.
  */
-object IOApp10ADT extends App {
+object IOApp13Failed extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -26,7 +17,7 @@ object IOApp10ADT extends App {
 
     protected def run(): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -43,13 +34,11 @@ object IOApp10ADT extends App {
     // returns a Future that runs the task eagerly on another thread
     def runToFuture(implicit ec: ExecutionContext): Future[A] = Future { run() }
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Try based callback
+    // takes a Try based callback
     def runOnComplete(callback: Try[A] => Unit)(implicit ec: ExecutionContext): Unit =
       runToFuture onComplete callback
 
-    // runs the IO in a Runnable on the given ExecutionContext
-    // and then executes the specified Either based callback
+    // takes a Either based callback
     def runAsync(callback: Either[Throwable, A] => Unit)(implicit ec: ExecutionContext): Unit =
       runOnComplete(tryy => callback(tryy.toEither))
 
@@ -62,6 +51,12 @@ object IOApp10ADT extends App {
         case Left(ex) => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
+
+    // Returns a failed projection of this task.
+    //
+    // The failed projection is a Task holding a value of type Throwable, emitting the error yielded by the source,
+    // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
+    def failed: IO[Throwable] = Failed(this)
   }
 
   object IO {
@@ -72,9 +67,26 @@ object IOApp10ADT extends App {
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
+    private case class Error[A](exception: Throwable) extends IO[A] {
+      override def run(): A = throw exception
+    }
+    private case class Failed[A](io: IO[A]) extends IO[Throwable] {
+      override def run(): Throwable = try {
+        io.run()
+        throw new NoSuchElementException("failed")
+      } catch {
+        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+        case throwable: Throwable => throwable
+      }
+    }
 
     def pure[A](a: A): IO[A] = Pure { () => a }
     def now[A](a: A): IO[A] = pure(a)
+
+    def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
     def eval[A](a: => A): IO[A] = Eval { () => a }
     def delay[A](a: => A): IO[A] = eval(a)
@@ -91,10 +103,10 @@ object IOApp10ADT extends App {
       optUser <- IO(getUsers) map { users =>
         users.find(_.name == username)
       }
-      authenticated <- IO(getPasswords) map { passwords =>
+      isAuthenticated <- IO(getPasswords) map { passwords =>
         optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
-    } yield authenticated
+    } yield isAuthenticated
 
 
 
@@ -122,10 +134,14 @@ object IOApp10ADT extends App {
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
   println("\n>>> IO#runToTry:")
-  printAuthTry(checkMaggie.runToTry)
+  val tryy: Try[Boolean] = checkMaggie.runToTry
+  println(tryy)
+  //=> Success(true)
 
   println("\n>>> IO#runToEither:")
-  printAuthEither(checkMaggie.runToEither)
+  val either: Either[Throwable, Boolean] = checkMaggie.runToEither
+  println(either)
+  //=> Right(true)
 
   println("\n>>> IO#runToFuture:")
   checkMaggie.runToFuture onComplete authCallbackTry
@@ -139,5 +155,30 @@ object IOApp10ADT extends App {
   checkMaggie runAsync authCallbackEither
   Thread sleep 500L
 
+
+  println("\n-----")
+
+  println(">> source: ioError")
+  val ioError: IO[Int] = IO.raiseError[Int](new IllegalStateException("illegal state"))
+  println(ioError.runToEither)
+  //=> Left(java.lang.IllegalStateException: illegal state)
+
+  println(">> projected:")
+  val failed: IO[Throwable] = ioError.failed
+  println(failed.runToEither)
+  //=> Right(java.lang.IllegalStateException: illegal state)
+
+  println
+
+  println(">> source: ioSuccess")
+  val ioSuccess = IO.pure(5)
+  println(ioSuccess.runToEither)
+  //=> Right(5)
+
+  println(">> projected:")
+  println(ioSuccess.failed.runToEither)
+  //=> Left(java.util.NoSuchElementException: failed)
+
+  Thread sleep 500L
   println("-----\n")
 }

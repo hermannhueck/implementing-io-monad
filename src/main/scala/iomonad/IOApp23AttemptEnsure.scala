@@ -1,17 +1,15 @@
 package iomonad
 
 import cats.MonadError
-import cats.data.EitherT
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Random, Success, Try}
 
 /*
-  Step 19 provides IO.deferFuture which can make the Future lazy.
-  IO.deferFuture(f) is just an alias for IO.defer { IO.fromFuture(f) }
+  Step 23 adds attempt, ensure and ensureOr.
  */
-object IOApp23Attempt extends App {
+object IOApp23AttemptEnsure extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -150,6 +148,7 @@ object IOApp23Attempt extends App {
     }
     private case class FromFuture[A](fa: Future[A]) extends IO[A] {
       override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
+      // A solution of this problem would require a redesign of this simple IO Monod, which doesn't really support async computations.
     }
 
     def pure[A](a: A): IO[A] = Pure { () => a }

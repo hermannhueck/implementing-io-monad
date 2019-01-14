@@ -5,20 +5,22 @@ import iomonad.auth._
 import scala.util.Try
 
 /*
-  Before adding asynchronous run* methods in step 8 I use another example program.
+  Before adding asynchronous run* methods in the next step I use another example program.
   The previous interactive program is not very suitable to demonstrate asynchrony.
 
-  The 'authenticate' method accesses the files 'users.txt' and 'passwords.txt'
+  Step 9: The 'authenticate' method accesses the files 'users.txt' and 'passwords.txt'
   to check a username and a password and returns true if the specified username
   exists in 'users.txt' and the specified password matches with the user's passord in 'passwords.txt'.
  */
-object IOApp07AuthenticateMaggie extends App {
+object IOApp09AuthenticateMaggie extends App {
 
-  case class IO[A](run: () => A) {
+  sealed trait IO[+A] extends Product with Serializable {
 
     import IO._
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+    def run(): A
+
+    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
     def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
@@ -32,8 +34,23 @@ object IOApp07AuthenticateMaggie extends App {
   }
 
   object IO {
-    def pure[A](value: A): IO[A] = IO { () => value }
-    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
+
+    private case class Pure[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class Eval[A](thunk: () => A) extends IO[A] {
+      override def run(): A = thunk()
+    }
+    private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
+      override def run(): B = f(src.run()).run()
+    }
+
+    def pure[A](a: A): IO[A] = Pure { () => a }
+    def now[A](a: A): IO[A] = pure(a)
+
+    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def delay[A](a: => A): IO[A] = eval(a)
+    def apply[A](a: => A): IO[A] = eval(a)
   }
 
 
@@ -43,10 +60,10 @@ object IOApp07AuthenticateMaggie extends App {
 
   def authenticate(username: String, password: String): IO[Boolean] =
     for {
-      optUser <- IO.eval(getUsers) map { users =>
+      optUser <- IO(getUsers) map { users =>
         users.find(_.name == username)
       }
-      isAuthenticated <- IO.eval(getPasswords) map { passwords =>
+      isAuthenticated <- IO(getPasswords) map { passwords =>
         optUser.isDefined && passwords.contains(Password(optUser.get.id, password))
       }
     } yield isAuthenticated
@@ -55,10 +72,10 @@ object IOApp07AuthenticateMaggie extends App {
 
   println("\n-----")
 
-  IO.eval(getUsers).run() foreach println
+  IO(getUsers).run() foreach println
   println("-----")
 
-  IO.eval(getPasswords).run() foreach println
+  IO(getPasswords).run() foreach println
   println("-----")
 
   println("\n>>> IO#run: authenticate:")
