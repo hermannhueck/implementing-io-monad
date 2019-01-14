@@ -1,4 +1,4 @@
-package iomonad.typeclasses
+package iomonad.effect
 
 import scala.language.higherKinds
 
@@ -16,7 +16,7 @@ trait Sync[F[_]] extends Bracket[F, Throwable] {
     * Alias for `suspend` that suspends the evaluation of
     * an `F` reference and implements `cats.Defer` typeclass.
     */
-  final def defer[A](fa: => F[A]): F[A] = suspend(fa)
+  def defer[A](thunk: => F[A]): F[A] = suspend(thunk)
 
   /**
     * Lifts any by-name parameter into the `F` context.

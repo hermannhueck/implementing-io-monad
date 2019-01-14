@@ -1,4 +1,4 @@
-package iomonad.typeclasses
+package iomonad.effect
 
 import scala.language.higherKinds
 import scala.util.Either
