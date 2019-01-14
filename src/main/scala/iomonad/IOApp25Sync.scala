@@ -1,17 +1,16 @@
 package iomonad
 
-import iomonad.effect.Bracket
+import iomonad.effect.Sync
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
-import scala.language.higherKinds
-
 /*
-  Step 24 adds IO#bracket and provides an instance of type class Bracket
+  Step 25 provides an instance of type class Sync
  */
-object IOApp24Bracket extends App {
+object IOApp25Sync extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -196,7 +195,7 @@ object IOApp24Bracket extends App {
       defer(IO.fromFuture(future))
 
     // Bracket instance defined in implicit scope
-    implicit def ioMonad: Bracket[IO, Throwable] = new Bracket[IO, Throwable] {
+    implicit def ioMonad: Sync[IO] = new Sync[IO] {
 
       // Monad
       override def pure[A](value: A): IO[A] = IO.pure(value)
@@ -209,6 +208,8 @@ object IOApp24Bracket extends App {
 
       // Bracket
       override def bracket[A, B](acquire: IO[A])(use: A => IO[B])(release: A => IO[Unit]): IO[B] = acquire.bracket(use)(release)
+
+      override def suspend[A](thunk: => IO[A]): IO[A] = IO.suspend(thunk)
     }
 
     implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
@@ -222,32 +223,40 @@ object IOApp24Bracket extends App {
 
 
   println("\n-----")
-  println(">>> bracket:")
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  val acquire: IO[Unit] = IO {
-    println("Resource acquired")
-  }
+  println("\n>>> IO.pure(...):")
+  val io1 = IO.pure { println("immediate side effect"); 5 }
+  //=> immediate side effect
+  Thread sleep 2000L
+  io1 foreach println
+  //=> 5
+  Thread sleep 2000L
 
-  acquire.bracket { resource =>
-    IO { println("Resource used") }
-  } { resource =>
-    IO { println(s"Resource released") }
-  } foreach { _ => () }
+  println("\n>>> IO.suspend(IO.pure(...)):")
+  val io2 = IO.suspend { IO.pure { println("suspended side effect"); 5 } }
+  Thread sleep 2000L
+  io2 foreach println
+  //=> suspended side effect
+  //=> 5
+  Thread sleep 2000L
 
-/*
-  import Bracket.syntax
+  println("\n>>> Sync[F].pure(...):")
+  def sync1[F[_]: Sync]: F[Int] = Sync[F].pure { println("immediate side effect"); 5 }
+  //=> immediate side effect
+  Thread sleep 2000L
+  sync1[IO] foreach println
+  //=> 5
+  Thread sleep 2000L
 
-  def brAcquire[F[_], RES](implicit bracket: Bracket[F, Throwable]): F[RES] = acquire.asInstanceOf[F[RES]]
-  def brUse[F[_], RES, B](implicit bracket: Bracket[F, Throwable]): RES => F[B] = resource => IO { println("Resource used") }.asInstanceOf[F[B]]
-  def brRelease[F[_], RES](implicit bracket: Bracket[F, Throwable]): RES => F[Unit] = resource => IO { println(s"Resource released") }.asInstanceOf[F[Unit]]
-
-  def result[F[_], RES, B](implicit BR: Bracket[F, Throwable]): F[B] =
-    BR.bracket(brAcquire)(brUse)(brRelease)
-*/
-
-  Thread sleep 500L
+  println("\n>>> Sync[F].suspend(Sync[F].pure(...)):")
+  def sync2[F[_]: Sync]: F[Int] = Sync[F].suspend { Sync[F].pure { println("suspended side effect"); 5 } }
+  Thread sleep 2000L
+  sync2[IO] foreach println
+  //=> suspended side effect
+  //=> 5
+  Thread sleep 2000L
 
   println("-----\n")
 }

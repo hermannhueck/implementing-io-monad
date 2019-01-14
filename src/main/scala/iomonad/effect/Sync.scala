@@ -27,3 +27,8 @@ trait Sync[F[_]] extends Bracket[F, Throwable] {
     */
   def delay[A](thunk: => A): F[A] = suspend(pure(thunk))
 }
+
+object Sync {
+
+  def apply[F[_]: Sync]: Sync[F] = implicitly
+}

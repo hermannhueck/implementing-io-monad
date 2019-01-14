@@ -14,6 +14,15 @@ trait Bracket[F[_], E] extends MonadError[F, E] {
   def guarantee[A](fa: F[A])(finalizer: F[Unit]): F[A] = bracket(unit)(_ => fa)(_ => finalizer)
 }
 
+object Bracket {
+
+  def apply[F[_]](implicit bracket: Bracket[F, Throwable]): Bracket[F, Throwable] = implicitly[Bracket[F, Throwable]]
+
+  implicit class syntax[F[_], A](acquire: F[A])(implicit ev: Bracket[F, Throwable]) {
+    def bracket[B](use: A => F[B])(release: A => F[Unit]): F[B] = Bracket[F].bracket(acquire)(use)(release)
+  }
+}
+
 
 /*
 sealed abstract class ExitCase[+E] extends Product with Serializable
