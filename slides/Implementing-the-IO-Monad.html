@@ -195,10 +195,11 @@ https://github.com/hermannhueck/implementing-io-monad
 
 My implementation of the IO Monad is just a feasibility study, not production code.
 
-When coding this impl I was very much inspired by Monix *Task* which I studied at that time.
+When coding this IO impl I was very much inspired by *cats.effect.IO* and *monix.eval.Task*
+which I studied at that time. Both are implementions of the IO Monad.
 
-The API of my IO is very similar to the basics of Monix *Task*. The implementation also helped me
-to understand the IO Monad (of *cats-effect*) and Monix *Task* (which itsself is an impl of the IO Monad).
+The API of my IO is very similar to the basics of Monix *Task*. This IO implementation also helped me
+to understand the IO Monad (of *cats-effect*) and Monix *Task*.
 
 Interop with *Future* is also supported. You can convert *IO* to a *Future*.
 Vice versa you can convert a *Future* to an *IO*.
@@ -1146,23 +1147,16 @@ io2 foreach println
 ```scala
 object IO {
 
-  def fromTry[A](tryy: Try[A]): IO[A] = IO {
-    tryy match {
-      case Failure(throwable) => throw throwable
-      case Success(value) => value
-    }
-  }
+  def fromTry[A](tryy: Try[A]): IO[A] =
+    tryy.fold(IO.raiseError, IO.pure)
 
-  def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
-    either match {
-      case Left(throwable) => throw throwable
-      case Right(value) => value
-    }
-  }
+  def fromEither[A](either: Either[Throwable, A]): IO[A] =
+    either.fold(IO.raiseError, IO.pure)
 }
 ```
 
 --
+<br/>
 
 ```scala
 val tryy: Try[Seq[User]] = Try { User.getUsers }
@@ -1196,8 +1190,8 @@ object IO {
 
 - Waiting for the *Future* to complete might <u>block a thread</u>!
 
-- (A solution of this problem would require a redesign of my simple IO Monod,
-  which doesn't really support async computations.)
+- (A solution of this problem would require a redesign of my simple IO Monad,
+  which doesn't support non-blocking async computations.)
 
 ---
 

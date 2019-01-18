@@ -127,19 +127,11 @@ object IOApp21OnErrorRecoverWith extends App {
     def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
     def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
 
-    def fromTry[A](tryy: Try[A]): IO[A] = IO {
-      tryy match {
-        case Failure(t) => throw t
-        case Success(value) => value
-      }
-    }
+    def fromTry[A](tryy: Try[A]): IO[A] =
+      tryy.fold(IO.raiseError, IO.pure)
 
-    def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
-      either match {
-        case Left(t) => throw t
-        case Right(value) => value
-      }
-    }
+    def fromEither[A](either: Either[Throwable, A]): IO[A] =
+      either.fold(IO.raiseError, IO.pure)
 
     def fromFuture[A](future: Future[A]): IO[A] = FromFuture(future)
 
