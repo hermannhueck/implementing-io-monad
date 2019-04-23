@@ -4,9 +4,8 @@ import iomonad.effect.Bracket
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
-
 import scala.language.higherKinds
+import scala.util.Try
 
 /*
   Step 24 adds IO#bracket and provides an instance of type class Bracket

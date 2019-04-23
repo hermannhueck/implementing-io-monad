@@ -4,7 +4,7 @@ import cats.MonadError
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 20 adds the error handling methods onErrorHandleWith and onErrorHandle.

@@ -5,7 +5,7 @@ import iomonad.auth._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 18 provides IO.fromFuture.

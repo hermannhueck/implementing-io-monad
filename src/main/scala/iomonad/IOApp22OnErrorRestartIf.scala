@@ -4,7 +4,7 @@ import cats.MonadError
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Random, Try}
 
 /*
   Step 22 adds onErrorRestartIf, onErrorRestart and onErrorFallbackTo.

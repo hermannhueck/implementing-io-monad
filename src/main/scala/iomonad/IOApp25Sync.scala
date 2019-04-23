@@ -5,7 +5,7 @@ import iomonad.effect.Sync
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.higherKinds
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 25 provides an instance of type class Sync

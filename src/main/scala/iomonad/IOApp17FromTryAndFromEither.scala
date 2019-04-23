@@ -4,7 +4,7 @@ import cats.Monad
 import iomonad.auth._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 17 provides IO.fromTry and IO.fromEither.

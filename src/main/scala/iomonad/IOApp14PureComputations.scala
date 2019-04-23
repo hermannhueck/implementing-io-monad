@@ -1,11 +1,8 @@
 package iomonad
 
-import cats.Monad
-
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-
 import scala.language.higherKinds
+import scala.util.Try
 
 /*
   Step 14 defines 3 methods which return IO[A]: sumIO, fibonacciIO, factorialIO

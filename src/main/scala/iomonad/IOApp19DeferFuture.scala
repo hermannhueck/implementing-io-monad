@@ -5,7 +5,7 @@ import iomonad.auth._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 19 provides IO.deferFuture which can make the Future lazy.

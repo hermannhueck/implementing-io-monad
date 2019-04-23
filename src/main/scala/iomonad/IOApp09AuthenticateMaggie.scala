@@ -55,8 +55,8 @@ object IOApp09AuthenticateMaggie extends App {
 
 
 
-  import User._
   import Password._
+  import User._
 
   def authenticate(username: String, password: String): IO[Boolean] =
     for {

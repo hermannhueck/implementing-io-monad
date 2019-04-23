@@ -171,9 +171,10 @@ object IOApp15MonadInstance extends App {
 
   def computeWithFuture(): Unit = {
 
-    import scala.concurrent.{Future, ExecutionContext}
-    import ExecutionContext.Implicits.global
     import cats.instances.future._
+
+    import scala.concurrent.{ExecutionContext, Future}
+    import ExecutionContext.Implicits.global
 
     println(">> reify F[] with Future")
     val future: Future[BigInt] = computeF[Future](1, 4)

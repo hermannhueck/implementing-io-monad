@@ -4,7 +4,7 @@ import cats.MonadError
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /*
   Step 21 adds the recovery methods onErrorRecoverWith and onErrorRecover.
