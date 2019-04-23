@@ -8,7 +8,11 @@ trait Bracket[F[_], E] extends MonadError[F, E] {
 
   // Operation meant for specifying tasks with safe resource acquisition and release in the face of errors and interruption.
   // This operation provides the equivalent of try/catch/finally statements in mainstream imperative languages for resource acquisition and release.
-  def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B]
+  def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
+    bracketCase(acquire)(use)((a, _) => release(a))
+
+  // A generalized version of bracket which uses ExitCase to distinguish between different exit cases when releasing the acquired resource.
+  def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[E]) => F[Unit]): F[B]
 
   // Executes the given finalizer when the source is finished, either in success or in error, or if canceled.
   def guarantee[A](fa: F[A])(finalizer: F[Unit]): F[A] = bracket(unit)(_ => fa)(_ => finalizer)

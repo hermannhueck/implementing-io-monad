@@ -1,6 +1,6 @@
 package iomonad
 
-import iomonad.effect.{Bracket, ExitCase}
+import iomonad.effect.{ExitCase, Sync}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -8,9 +8,9 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /*
-  Step 24 adds IO#bracket and provides an instance of type class Bracket
+  Step 26 provides an instance of type class Sync
  */
-object IOApp24Bracket extends App {
+object IOApp26Sync extends App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
@@ -120,17 +120,6 @@ object IOApp24Bracket extends App {
       }
     }.flatten
 
-    def bracket[B](use: A => IO[B])(release: A => IO[Unit]): IO[B] = IO {
-      this flatMap { resource =>
-          try {
-            import cats.syntax.apply._
-            use(resource) <* release(resource)
-          } finally {
-            release(resource)
-          }
-      }
-    }.flatten
-
     def bracketCase[B](use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] = IO {
       this flatMap { resource =>
         try {
@@ -200,7 +189,7 @@ object IOApp24Bracket extends App {
       defer(IO.fromFuture(future))
 
     // Bracket instance defined in implicit scope
-    implicit def ioMonad: Bracket[IO, Throwable] = new Bracket[IO, Throwable] {
+    implicit def ioMonad: Sync[IO] = new Sync[IO] {
 
       // Monad
       override def pure[A](value: A): IO[A] = IO.pure(value)
@@ -212,10 +201,11 @@ object IOApp24Bracket extends App {
       override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] = fa onErrorHandleWith f
 
       // Bracket
-      override def bracket[A, B](acquire: IO[A])(use: A => IO[B])(release: A => IO[Unit]): IO[B] =
-        acquire.bracket(use)(release)
       override def bracketCase[A, B](acquire: IO[A])(use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] =
         acquire.bracketCase(use)(release)
+
+      // Sync
+      override def suspend[A](thunk: => IO[A]): IO[A] = IO.suspend(thunk)
     }
 
     implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
@@ -224,26 +214,48 @@ object IOApp24Bracket extends App {
       def handleError(f: Throwable => A): IO[A] = ioa onErrorHandle f
       def recoverWith(pf: PartialFunction[Throwable, IO[A]]): IO[A] = ioa onErrorRecoverWith pf
       def recover(pf: PartialFunction[Throwable, A]): IO[A] = ioa onErrorRecover pf
+
+      def bracket[B](use: A => IO[B])(release: A => IO[Unit]): IO[B] =
+        ioa.bracketCase(use)((a, _) => release(a))
     }
   }
 
 
   println("\n-----")
-  println(">>> bracket:")
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  val acquire: IO[Unit] = IO {
-    println("Resource acquired")
-  }
+  println("\n>>> IO.pure(...):")
+  val io1 = IO.pure { println("immediate side effect"); 5 }
+  //=> immediate side effect
+  Thread sleep 2000L
+  io1 foreach println
+  //=> 5
+  Thread sleep 2000L
 
-  acquire.bracket { resource =>
-    IO { println("Resource used") }
-  } { resource =>
-    IO { println(s"Resource released") }
-  } foreach { _ => () }
+  println("\n>>> IO.suspend(IO.pure(...)):")
+  val io2 = IO.suspend { IO.pure { println("suspended side effect"); 5 } }
+  Thread sleep 2000L
+  io2 foreach println
+  //=> suspended side effect
+  //=> 5
+  Thread sleep 2000L
 
-  Thread sleep 500L
+  println("\n>>> Sync[F].pure(...):")
+  def sync1[F[_]: Sync]: F[Int] = Sync[F].pure { println("immediate side effect"); 5 }
+  //=> immediate side effect
+  Thread sleep 2000L
+  sync1[IO] foreach println
+  //=> 5
+  Thread sleep 2000L
+
+  println("\n>>> Sync[F].suspend(Sync[F].pure(...)):")
+  def sync2[F[_]: Sync]: F[Int] = Sync[F].suspend { Sync[F].pure { println("suspended side effect"); 5 } }
+  Thread sleep 2000L
+  sync2[IO] foreach println
+  //=> suspended side effect
+  //=> 5
+  Thread sleep 2000L
 
   println("-----\n")
 }
