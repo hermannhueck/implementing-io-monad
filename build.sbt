@@ -15,7 +15,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-core" % "1.5.0" withSources() withJavadoc(),
+  "org.typelevel" %% "cats-effect" % "1.2.0" withSources() withJavadoc(),
 )
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
