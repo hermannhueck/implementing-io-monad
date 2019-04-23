@@ -15,7 +15,13 @@ trait Bracket[F[_], E] extends MonadError[F, E] {
   def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[E]) => F[Unit]): F[B]
 
   // Executes the given finalizer when the source is finished, either in success or in error, or if canceled.
-  def guarantee[A](fa: F[A])(finalizer: F[Unit]): F[A] = bracket(unit)(_ => fa)(_ => finalizer)
+  def guarantee[A](fa: F[A])(finalizer: F[Unit]): F[A] =
+    bracket(unit)(_ => fa)(_ => finalizer)
+
+  // Executes the given `finalizer` when the source is finished, either in success or in error, or if canceled,
+  // allowing for differentiating between exit conditions.
+  def guaranteeCase[A](fa: F[A])(finalizer: ExitCase[E] => F[Unit]): F[A] =
+    bracketCase(unit)(_ => fa)((_, e) => finalizer(e))
 }
 
 object Bracket {
