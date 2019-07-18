@@ -214,7 +214,7 @@ object IOApp23AttemptEnsure extends App {
 
   val outer: Either[Throwable, Either[Throwable, Int]] = io.attempt.runToEither
   println(outer)
-  val inner = outer.flatten
+  val inner = outer.flatMap(x => x) // 2.12 or ... in 2.13 .flatten
   println(inner)
 
   Thread sleep 500L

@@ -2,7 +2,7 @@ name := "implementing-io-monad"
 
 version := "0.0.1-SNAPSHOT"
 
-scalaVersion := "2.13.0-M5"
+scalaVersion := "2.12.8"
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",     // source files are in UTF-8
@@ -15,7 +15,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-effect" % "1.2.0" withSources() withJavadoc(),
+  "org.typelevel" %% "cats-effect" % "1.3.1" withSources() withJavadoc(),
 )
 
-addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.10")
