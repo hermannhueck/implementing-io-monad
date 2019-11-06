@@ -9,7 +9,7 @@ import scala.util.Try
   Step 13 implements 'IO#failed'.
   It adds sub type Error to the ADT IO.
  */
-object IOApp13Failed extends App {
+object IOApp13Failed extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

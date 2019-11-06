@@ -9,7 +9,7 @@ import scala.util.Try
 /*
   Step 24 adds IO#bracket and provides an instance of type class Bracket
  */
-object IOApp24Bracket extends App {
+object IOApp24Bracket extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

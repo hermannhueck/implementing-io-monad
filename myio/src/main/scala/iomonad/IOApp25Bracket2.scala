@@ -9,7 +9,7 @@ import scala.util.Try
 /*
   Step 25 implements bracket in terms of bracketCase
  */
-object IOApp25Bracket2 extends App {
+object IOApp25Bracket2 extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

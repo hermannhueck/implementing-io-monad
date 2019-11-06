@@ -10,7 +10,7 @@ import scala.util.Try
   Step 21 adds the recovery methods onErrorRecoverWith and onErrorRecover.
   And it extends the implicit syntax class with the recovery methods.
  */
-object IOApp21OnErrorRecoverWith extends App {
+object IOApp21OnErrorRecoverWith extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

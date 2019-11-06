@@ -5,7 +5,7 @@ package iomonad
   The Method IO#flatMap just creates an instance of FlatMap.
   Now IO is trampolined and hence stack-safe.
  */
-object IOApp07ADTFlatMap extends App {
+object IOApp07ADTFlatMap extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

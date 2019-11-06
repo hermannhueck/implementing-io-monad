@@ -5,7 +5,7 @@ package iomonad
   a PURE description of the side effects which are not yet performed.
   Side effects are produced when the program is invoked, not earlier.
  */
-object IOApp02Pure extends App {
+object IOApp02Pure extends util.App {
 
   println("\n-----")
 

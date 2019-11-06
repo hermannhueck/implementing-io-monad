@@ -5,7 +5,7 @@ import iomonad.IOApp05PureAndEval.IO
 /*
   see: https://typelevel.org/blog/2017/05/02/io-monad-for-cats.html
  */
-object RefTransparent extends App {
+object RefTransparent extends util.App {
 
   println("\n-----")
 

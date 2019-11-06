@@ -3,9 +3,7 @@ package iomonad
 /*
   Step 1: An IO program with side effects is IMPURE.
  */
-object IOApp01Impure extends App {
-
-  println("\n-----")
+object IOApp01Impure extends util.App {
 
   // program definition WITH side effects
   def program(): Unit = {
@@ -16,6 +14,4 @@ object IOApp01Impure extends App {
 
   program()
   program()
-
-  println("-----\n")
 }

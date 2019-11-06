@@ -9,7 +9,7 @@ import scala.concurrent.Future
   see blogpost:
   https://www.reddit.com/r/scala/comments/3zofjl/why_is_future_totally_unusable/
  */
-object FutureIsNotRT extends App {
+object FutureIsNotRT extends util.App {
 
   println("\n-----")
 

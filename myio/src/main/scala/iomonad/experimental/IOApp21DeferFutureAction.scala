@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
   - The IO#run method in trait IO has a new case for FutureToTask which applies the wrapped function to the implicitly passed EC,
     turns it into an IO with fromFuture and runs it passing the ec again.
  */
-object IOApp21DeferFutureAction extends App {
+object IOApp21DeferFutureAction extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

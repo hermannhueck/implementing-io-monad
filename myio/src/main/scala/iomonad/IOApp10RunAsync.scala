@@ -9,7 +9,7 @@ import scala.util.Try
   In step 10 I added three async run* methods: runToFuture, runOnComplete, runAsync.
   All three accept an implicit ExecutionContext.
  */
-object IOApp10RunAsync extends App {
+object IOApp10RunAsync extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

@@ -9,7 +9,7 @@ import scala.util.{Random, Try}
 /*
   Step 22 adds onErrorRestartIf, onErrorRestart and onErrorFallbackTo.
  */
-object IOApp22OnErrorRestartIf extends App {
+object IOApp22OnErrorRestartIf extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

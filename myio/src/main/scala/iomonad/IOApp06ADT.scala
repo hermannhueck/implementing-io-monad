@@ -13,7 +13,7 @@ package iomonad
   Having apply it is more natural to create new IO instances.
   We can just use IO { thunk } instead of IO.eval { thunk }
  */
-object IOApp06ADT extends App {
+object IOApp06ADT extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

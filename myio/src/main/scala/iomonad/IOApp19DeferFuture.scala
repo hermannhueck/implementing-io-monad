@@ -11,7 +11,7 @@ import scala.util.Try
   Step 19 provides IO.deferFuture which can make the Future lazy.
   IO.deferFuture(f) is just an alias for IO.defer { IO.fromFuture(f) }
  */
-object IOApp19DeferFuture extends App {
+object IOApp19DeferFuture extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

@@ -9,7 +9,7 @@ import scala.util.Try
 /*
   Step 26 provides an instance of type class Sync
  */
-object IOApp26Sync extends App {
+object IOApp26Sync extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

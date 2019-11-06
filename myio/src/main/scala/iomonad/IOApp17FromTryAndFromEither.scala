@@ -10,7 +10,7 @@ import scala.util.Try
   Step 17 provides IO.fromTry and IO.fromEither.
   These methods (eagerly) converts a Try or an Either into an IO.
  */
-object IOApp17FromTryAndFromEither extends App {
+object IOApp17FromTryAndFromEither extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

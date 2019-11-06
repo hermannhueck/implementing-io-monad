@@ -12,7 +12,7 @@ import scala.util.Try
   to check a username and a password and returns true if the specified username
   exists in 'users.txt' and the specified password matches with the user's passord in 'passwords.txt'.
  */
-object IOApp09AuthenticateMaggie extends App {
+object IOApp09AuthenticateMaggie extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

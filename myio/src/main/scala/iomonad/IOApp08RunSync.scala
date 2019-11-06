@@ -7,7 +7,7 @@ import scala.util.Try
   In step 8 I added two additional synchronous run* methods which do not throw an exception:
   'runToTry' and 'runToEither'.
  */
-object IOApp08RunSync extends App {
+object IOApp08RunSync extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

@@ -14,7 +14,7 @@ import scala.util.Try
   factorialIO becomes factorialF[F[_]: Monad]
   computeIO becomes computeF[F[_]: Monad]
  */
-object IOApp15MonadInstance extends App {
+object IOApp15MonadInstance extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

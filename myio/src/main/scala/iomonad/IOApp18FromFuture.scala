@@ -12,7 +12,7 @@ import scala.util.Try
   These methods (eagerly) converts a Future into an IO.
   Using IO.defer it can be made a lazy IO.
  */
-object IOApp18FromFuture extends App {
+object IOApp18FromFuture extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

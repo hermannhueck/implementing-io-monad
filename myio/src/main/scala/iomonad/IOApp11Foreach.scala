@@ -13,7 +13,7 @@ import scala.util.Try
 
   'foreach' only processes successful results, errors are reported to the ExecutionContext.
  */
-object IOApp11Foreach extends App {
+object IOApp11Foreach extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

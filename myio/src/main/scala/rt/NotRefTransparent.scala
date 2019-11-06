@@ -3,7 +3,7 @@ package rt
 /*
   see: https://typelevel.org/blog/2017/05/02/io-monad-for-cats.html
  */
-object NotRefTransparent extends App {
+object NotRefTransparent extends util.App {
 
   println("\n-----")
 

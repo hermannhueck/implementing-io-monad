@@ -13,7 +13,7 @@ import scala.util.Try
 
   IO.suspend and the alias IO.defer just create a Suspend instance.
  */
-object IOApp16ADTSuspend extends App {
+object IOApp16ADTSuspend extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

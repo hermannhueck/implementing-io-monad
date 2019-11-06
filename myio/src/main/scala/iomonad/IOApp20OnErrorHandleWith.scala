@@ -11,7 +11,7 @@ import scala.util.Try
   It also extends the Monad instance to an MonadError instance.
   And it adds an implicit class for MonadError like syntax extensions.
  */
-object IOApp20OnErrorHandleWith extends App {
+object IOApp20OnErrorHandleWith extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

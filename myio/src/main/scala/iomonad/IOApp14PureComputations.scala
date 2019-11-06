@@ -7,7 +7,7 @@ import scala.util.Try
   Step 14 defines 3 methods which return IO[A]: sumIO, fibonacciIO, factorialIO
   Based on these methods it defines method 'computeIO' that uses these methods in a for-comprehension.
  */
-object IOApp14PureComputations extends App {
+object IOApp14PureComputations extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

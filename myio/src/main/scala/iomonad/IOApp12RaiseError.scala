@@ -9,7 +9,7 @@ import scala.util.Try
   Step 12 implements 'IO.raiseError'.
   It adds sub type Error to the ADT IO.
  */
-object IOApp12RaiseError extends App {
+object IOApp12RaiseError extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

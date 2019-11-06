@@ -12,7 +12,7 @@ import scala.util.{Failure, Success, Try}
   all take an implicit EC in order to enable async execution as well.
   That's what we need in the next step.
  */
-object IOApp20SyncRunMethodsTakeEC extends App {
+object IOApp20SyncRunMethodsTakeEC extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 

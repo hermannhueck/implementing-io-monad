@@ -9,7 +9,7 @@ import scala.util.{Random, Try}
 /*
   Step 23 adds attempt, ensure and ensureOr.
  */
-object IOApp23AttemptEnsure extends App {
+object IOApp23AttemptEnsure extends util.App {
 
   sealed trait IO[+A] extends Product with Serializable {
 
