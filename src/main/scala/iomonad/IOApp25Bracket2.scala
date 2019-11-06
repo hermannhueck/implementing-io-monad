@@ -4,7 +4,6 @@ import iomonad.effect.{Bracket, ExitCase}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.Try
 
 /*

@@ -1,7 +1,6 @@
 package iomonad
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.Try
 
 /*

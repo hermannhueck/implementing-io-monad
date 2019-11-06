@@ -1,6 +1,5 @@
 package iomonad
 
-import scala.language.higherKinds
 
 package object effect {
 

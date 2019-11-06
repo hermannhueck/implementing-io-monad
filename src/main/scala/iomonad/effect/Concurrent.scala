@@ -1,6 +1,5 @@
 package iomonad.effect
 
-import scala.language.higherKinds
 import scala.util.Either
 
 trait Concurrent[F[_]] extends Async[F] {

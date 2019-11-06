@@ -1,6 +1,5 @@
 package iomonad.effect
 
-import scala.language.higherKinds
 
 trait Fiber[F[_], A] {
   /**

@@ -1,6 +1,5 @@
 package iomonad.effect
 
-import scala.language.higherKinds
 
 trait Sync[F[_]] extends Bracket[F, Throwable] {
   /**

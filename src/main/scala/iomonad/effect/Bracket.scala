@@ -2,7 +2,6 @@ package iomonad.effect
 
 import cats.MonadError
 
-import scala.language.higherKinds
 
 trait Bracket[F[_], E] extends MonadError[F, E] {
 
