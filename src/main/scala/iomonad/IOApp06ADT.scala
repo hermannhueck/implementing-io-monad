@@ -21,8 +21,8 @@ object IOApp06ADT extends App {
 
     def run(): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B]            = IO { f(run()).run() }
+    def map[B](f: A => B): IO[B]                    = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
   }
 
@@ -31,14 +31,19 @@ object IOApp06ADT extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
   }

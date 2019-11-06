@@ -1,7 +1,7 @@
 package iomonad.effect
 
-
 trait Sync[F[_]] extends Bracket[F, Throwable] {
+
   /**
     * Suspends the evaluation of an `F` reference.
     *

@@ -1,7 +1,7 @@
 package iomonad.effect
 
-
 trait Fiber[F[_], A] {
+
   /**
     * Triggers the cancellation of the fiber.
     *

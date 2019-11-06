@@ -15,8 +15,8 @@ object IOApp14PureComputations extends App {
 
     protected def run(): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B]            = FlatMap(this, f)
+    def map[B](f: A => B): IO[B]                    = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
@@ -46,7 +46,7 @@ object IOApp14PureComputations extends App {
     // any non-fatal exceptions thrown will be reported to the ExecutionContext.
     def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync {
-        case Left(ex) => ec.reportFailure(ex)
+        case Left(ex)     => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
 
@@ -62,35 +62,44 @@ object IOApp14PureComputations extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
       override def run(): B = f(src.run()).run()
     }
+
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(): A = throw exception
     }
+
     private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-      override def run(): Throwable = try {
-        io.run()
-        throw new NoSuchElementException("failed")
-      } catch {
-        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-        case throwable: Throwable => throwable
-      }
+
+      override def run(): Throwable =
+        try {
+          io.run()
+          throw new NoSuchElementException("failed")
+        } catch {
+          case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+          case throwable: Throwable                                      => throwable
+        }
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
   }
-
 
   def sumIO(from: Int, to: Int): IO[Int] =
     IO { sumOfRange(from, to) }
@@ -108,11 +117,12 @@ object IOApp14PureComputations extends App {
       z <- factorialIO(y.intValue)
     } yield z
 
-
   val io: IO[BigInt] = computeIO(1, 4)
 
   implicit val ec: ExecutionContext = ExecutionContext.global
-  io foreach { result => println(s"result = $result") }
+  io foreach { result =>
+    println(s"result = $result")
+  }
   //=> 6227020800
 
   Thread sleep 500L

@@ -16,14 +16,22 @@ object IOApp05PureAndEval extends App {
 
     import IO._
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B] = IO { () =>
+      f(run()).run()
+    }
+    def map[B](f: A => B): IO[B]                    = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
   }
 
   object IO {
-    def pure[A](value: A): IO[A] = IO { () => value }
-    def eval[A](thunk: => A): IO[A] = IO { () => thunk }
+
+    def pure[A](value: A): IO[A] = IO { () =>
+      value
+    }
+
+    def eval[A](thunk: => A): IO[A] = IO { () =>
+      thunk
+    }
   }
 
   println("\n-----")

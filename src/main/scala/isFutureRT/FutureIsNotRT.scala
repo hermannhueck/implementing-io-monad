@@ -14,7 +14,7 @@ object FutureIsNotRT extends App {
   println("\n-----")
 
   val future1: Future[(Int, Int)] = {
-    val atomicInt = new AtomicInteger(0)
+    val atomicInt           = new AtomicInteger(0)
     val future: Future[Int] = Future { atomicInt.incrementAndGet }
     for {
       x <- future
@@ -22,9 +22,7 @@ object FutureIsNotRT extends App {
     } yield (x, y)
   }
 
-  future1 onComplete println     // Success((1,1))
-
-
+  future1 onComplete println // Success((1,1))
 
   // same as future1, but inlined
   val future2: Future[(Int, Int)] = {
@@ -35,7 +33,7 @@ object FutureIsNotRT extends App {
     } yield (x, y)
   }
 
-  future2 onComplete println     // Success((1,2))    <-- not the same result
+  future2 onComplete println // Success((1,2))    <-- not the same result
 
   Thread.sleep(200L)
   println("-----")

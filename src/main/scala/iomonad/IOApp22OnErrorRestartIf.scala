@@ -56,7 +56,7 @@ object IOApp22OnErrorRestartIf extends App {
     // any non-fatal exceptions thrown will be reported to the ExecutionContext.
     def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync {
-        case Left(ex) => ec.reportFailure(ex)
+        case Left(ex)     => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
 
@@ -66,21 +66,26 @@ object IOApp22OnErrorRestartIf extends App {
     // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
     def failed: IO[Throwable] = Failed(this)
 
-    def onErrorHandleWith[AA >: A](f: Throwable => IO[AA]): IO[AA] = IO {
-      this.runToEither match {
-        case Left(t) => f(t)
-        case Right(a) => IO.pure(a)
-      }
-    }.flatten
+    def onErrorHandleWith[AA >: A](f: Throwable => IO[AA]): IO[AA] =
+      IO {
+        this.runToEither match {
+          case Left(t)  => f(t)
+          case Right(a) => IO.pure(a)
+        }
+      }.flatten
 
     def onErrorHandle[AA >: A](f: Throwable => AA): IO[AA] =
       onErrorHandleWith(t => IO.pure(f(t)))
 
     def onErrorRecoverWith[AA >: A](pf: PartialFunction[Throwable, IO[AA]]): IO[AA] =
-      onErrorHandleWith { t => pf.applyOrElse(t, raiseError) }
+      onErrorHandleWith { t =>
+        pf.applyOrElse(t, raiseError)
+      }
 
     def onErrorRecover[AA >: A](pf: PartialFunction[Throwable, AA]): IO[AA] =
-      onErrorHandle { t => pf.applyOrElse(t, throw _: Throwable) }
+      onErrorHandle { t =>
+        pf.applyOrElse(t, throw _: Throwable)
+      }
 
     def onErrorRestartIf(p: Throwable => Boolean): IO[A] =
       onErrorHandleWith { t =>
@@ -107,43 +112,55 @@ object IOApp22OnErrorRestartIf extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(): A = throw exception
     }
+
     private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-      override def run(): Throwable = try {
-        io.run()
-        throw new NoSuchElementException("failed")
-      } catch {
-        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-        case throwable: Throwable => throwable
-      }
+
+      override def run(): Throwable =
+        try {
+          io.run()
+          throw new NoSuchElementException("failed")
+        } catch {
+          case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+          case throwable: Throwable                                      => throwable
+        }
     }
+
     private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
       override def run(): A = thunk().run()
     }
+
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
       override def run(): B = f(src.run()).run()
     }
+
     private case class FromFuture[A](fa: Future[A]) extends IO[A] {
       override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
       // A solution of this problem would require a redesign of this simple IO Monod, which doesn't really support async computations.
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
 
     def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
+    def defer[A](ioa: => IO[A]): IO[A]   = suspend(ioa)
 
     def fromTry[A](tryy: Try[A]): IO[A] =
       tryy.fold(IO.raiseError, IO.pure)
@@ -160,29 +177,30 @@ object IOApp22OnErrorRestartIf extends App {
     implicit def ioMonad: MonadError[IO, Throwable] = new MonadError[IO, Throwable] {
 
       // Monad
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def pure[A](value: A): IO[A]                              = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B]        = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
 
       // MonadError
       override def raiseError[A](e: Throwable): IO[A] = raiseError(e)
-      override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] = fa onErrorHandleWith f
+
+      override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] =
+        fa onErrorHandleWith f
     }
 
     implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
 
-      def handleErrorWith(f: Throwable => IO[A]): IO[A] = ioa onErrorHandleWith f
-      def handleError(f: Throwable => A): IO[A] = ioa onErrorHandle f
+      def handleErrorWith(f: Throwable => IO[A]): IO[A]             = ioa onErrorHandleWith f
+      def handleError(f: Throwable => A): IO[A]                     = ioa onErrorHandle f
       def recoverWith(pf: PartialFunction[Throwable, IO[A]]): IO[A] = ioa onErrorRecoverWith pf
-      def recover(pf: PartialFunction[Throwable, A]): IO[A] = ioa onErrorRecover pf
+      def recover(pf: PartialFunction[Throwable, A]): IO[A]         = ioa onErrorRecover pf
     }
   }
-
 
   val r = Random
 
   def even(num: Int): Boolean = num % 2 == 0
-  def odd(num: Int): Boolean = !even(num)
+  def odd(num: Int): Boolean  = !even(num)
 
   val io = IO {
     val num = r.nextInt(100)
@@ -196,7 +214,7 @@ object IOApp22OnErrorRestartIf extends App {
 
   io.onErrorRestartIf {
     case _: IllegalStateException => true
-    case _ => false
+    case _                        => false
   }.runToEither foreach println
 
   Thread sleep 500L

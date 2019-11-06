@@ -7,7 +7,7 @@ case class User(id: Int, name: String)
 object User {
 
   val userFile = "./users.txt"
-  val userUrl = new URL("file:" + userFile)
+  val userUrl  = new URL("file:" + userFile)
 
   def parse(str: String): User = {
     val list = str.split(":").toList

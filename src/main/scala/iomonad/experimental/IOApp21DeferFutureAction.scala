@@ -22,8 +22,8 @@ object IOApp21DeferFutureAction extends App {
 
     protected def run(implicit ec: ExecutionContext): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B]            = FlatMap(this, f)
+    def map[B](f: A => B): IO[B]                    = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
@@ -55,7 +55,7 @@ object IOApp21DeferFutureAction extends App {
     // any non-fatal exceptions thrown will be reported to the ExecutionContext.
     def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync {
-        case Left(ex) => ec.reportFailure(ex)
+        case Left(ex)     => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
 
@@ -71,56 +71,71 @@ object IOApp21DeferFutureAction extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(implicit ec: ExecutionContext): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(implicit ec: ExecutionContext): A = thunk()
     }
+
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(implicit ec: ExecutionContext): A = throw exception
     }
+
     private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-      override def run(implicit ec: ExecutionContext): Throwable = try {
-        io.run
-        throw new NoSuchElementException("failed")
-      } catch {
-        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-        case throwable: Throwable => throwable
-      }
+
+      override def run(implicit ec: ExecutionContext): Throwable =
+        try {
+          io.run
+          throw new NoSuchElementException("failed")
+        } catch {
+          case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+          case throwable: Throwable                                      => throwable
+        }
     }
+
     private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
       override def run(implicit ec: ExecutionContext): A = thunk().run
     }
+
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
       override def run(implicit ec: ExecutionContext): B = f(src.run).run
     }
+
     private case class FromFuture[A](fa: Future[A]) extends IO[A] {
-      override def run(implicit ec: ExecutionContext): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
+
+      override def run(implicit ec: ExecutionContext): A =
+        Await.result(fa, Duration.Inf) // BLOCKING!!!
     }
+
     private case class FutureToTask[A](ec2Future: ExecutionContext => Future[A]) extends IO[A] {
       override def run(implicit ec: ExecutionContext): A = fromFuture(ec2Future(ec)).run(ec)
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
 
     def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
+    def defer[A](ioa: => IO[A]): IO[A]   = suspend(ioa)
 
     def fromTry[A](tryy: Try[A]): IO[A] = IO {
       tryy match {
-        case Failure(t) => throw t
+        case Failure(t)     => throw t
         case Success(value) => value
       }
     }
 
     def fromEither[A](either: Either[Throwable, A]): IO[A] = IO {
       either match {
-        case Left(t) => throw t
+        case Left(t)      => throw t
         case Right(value) => value
       }
     }
@@ -135,13 +150,11 @@ object IOApp21DeferFutureAction extends App {
 
     // Monad instance defined in implicit scope
     implicit val ioMonad: Monad[IO] = new Monad[IO] {
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def pure[A](value: A): IO[A]                              = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B]        = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
     }
   }
-
-
 
   def futureGetUsers(implicit ec: ExecutionContext): Future[Seq[User]] = {
     Future {
@@ -158,21 +171,31 @@ object IOApp21DeferFutureAction extends App {
     println("----- side effect performed lazily")
     val io = IO.deferFuture { futureGetUsers }
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
+    io foreach { users =>
+      users foreach println
+    } // prints "side effect"
+    io foreach { users =>
+      users foreach println
+    } // prints "side effect"
     Thread sleep 1000L
   }
 
   {
     println("\n>>> IO.deferFutureAction(implicit ec => future)")
     println("----- side effect performed lazily")
-    val io = IO.deferFutureAction { implicit ec: ExecutionContext => futureGetUsers }
+    val io = IO.deferFutureAction { implicit ec: ExecutionContext =>
+      futureGetUsers
+    }
 
     // EC needed to run the IO
     implicit val ec: ExecutionContext = ExecutionContext.global
 
-    io foreach { users => users foreach println } // prints "side effect"
-    io foreach { users => users foreach println } // prints "side effect"
+    io foreach { users =>
+      users foreach println
+    } // prints "side effect"
+    io foreach { users =>
+      users foreach println
+    } // prints "side effect"
     Thread sleep 1000L
   }
 

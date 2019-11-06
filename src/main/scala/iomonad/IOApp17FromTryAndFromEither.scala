@@ -18,8 +18,8 @@ object IOApp17FromTryAndFromEither extends App {
 
     protected def run(): A
 
-    def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
-    def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+    def flatMap[B](f: A => IO[B]): IO[B]            = FlatMap(this, f)
+    def map[B](f: A => B): IO[B]                    = flatMap(a => pure(f(a)))
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 
     // ----- impure sync run* methods
@@ -51,7 +51,7 @@ object IOApp17FromTryAndFromEither extends App {
     // any non-fatal exceptions thrown will be reported to the ExecutionContext.
     def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync {
-        case Left(ex) => ec.reportFailure(ex)
+        case Left(ex)     => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
 
@@ -67,39 +67,50 @@ object IOApp17FromTryAndFromEither extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(): A = throw exception
     }
+
     private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-      override def run(): Throwable = try {
-        io.run()
-        throw new NoSuchElementException("failed")
-      } catch {
-        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-        case throwable: Throwable => throwable
-      }
+
+      override def run(): Throwable =
+        try {
+          io.run()
+          throw new NoSuchElementException("failed")
+        } catch {
+          case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+          case throwable: Throwable                                      => throwable
+        }
     }
+
     private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
       override def run(): A = thunk().run()
     }
+
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
       override def run(): B = f(src.run()).run()
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
 
     def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
+    def defer[A](ioa: => IO[A]): IO[A]   = suspend(ioa)
 
     def fromTry[A](tryy: Try[A]): IO[A] =
       tryy.fold(IO.raiseError, IO.pure)
@@ -109,25 +120,23 @@ object IOApp17FromTryAndFromEither extends App {
 
     // Monad instance defined in implicit scope
     implicit val ioMonad: Monad[IO] = new Monad[IO] {
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def pure[A](value: A): IO[A]                              = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B]        = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
     }
   }
-
-
 
   println("\n-----")
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
   val tryy: Try[Seq[User]] = Try { User.getUsers }
-  val io1: IO[Seq[User]] = IO.fromTry(tryy)
+  val io1: IO[Seq[User]]   = IO.fromTry(tryy)
   io1.runToEither foreach println
 
   println("-----")
   val either: Either[Throwable, Seq[User]] = tryy.toEither
-  val io2: IO[Seq[User]] = IO.fromEither(either)
+  val io2: IO[Seq[User]]                   = IO.fromEither(either)
   io1.runToEither foreach println
 
   println("-----\n")

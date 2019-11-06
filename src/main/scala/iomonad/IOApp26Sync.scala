@@ -56,7 +56,7 @@ object IOApp26Sync extends App {
     // any non-fatal exceptions thrown will be reported to the ExecutionContext.
     def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
       runAsync {
-        case Left(ex) => ec.reportFailure(ex)
+        case Left(ex)     => ec.reportFailure(ex)
         case Right(value) => f(value)
       }
 
@@ -66,21 +66,26 @@ object IOApp26Sync extends App {
     // in case the source fails, otherwise if the source succeeds the result will fail with a NoSuchElementException.
     def failed: IO[Throwable] = Failed(this)
 
-    def onErrorHandleWith[AA >: A](f: Throwable => IO[AA]): IO[AA] = IO {
-      this.runToEither match {
-        case Left(t) => f(t)
-        case Right(a) => IO.pure(a)
-      }
-    }.flatten
+    def onErrorHandleWith[AA >: A](f: Throwable => IO[AA]): IO[AA] =
+      IO {
+        this.runToEither match {
+          case Left(t)  => f(t)
+          case Right(a) => IO.pure(a)
+        }
+      }.flatten
 
     def onErrorHandle[AA >: A](f: Throwable => AA): IO[AA] =
       onErrorHandleWith(t => IO.pure(f(t)))
 
     def onErrorRecoverWith[AA >: A](pf: PartialFunction[Throwable, IO[AA]]): IO[AA] =
-      onErrorHandleWith { t => pf.applyOrElse(t, raiseError) }
+      onErrorHandleWith { t =>
+        pf.applyOrElse(t, raiseError)
+      }
 
     def onErrorRecover[AA >: A](pf: PartialFunction[Throwable, AA]): IO[AA] =
-      onErrorHandle { t => pf.applyOrElse(t, throw _: Throwable) }
+      onErrorHandle { t =>
+        pf.applyOrElse(t, throw _: Throwable)
+      }
 
     def onErrorRestartIf(p: Throwable => Boolean): IO[A] =
       onErrorHandleWith { t =>
@@ -103,34 +108,40 @@ object IOApp26Sync extends App {
 
     def attempt[AA >: A]: IO[Either[Throwable, AA]] =
       this
-        .map { t => Right(t): Either[Throwable, A] }
-        .onErrorHandleWith { e => IO.pure(Left(e))}
+        .map { t =>
+          Right(t): Either[Throwable, A]
+        }
+        .onErrorHandleWith { e =>
+          IO.pure(Left(e))
+        }
 
     // Turns a successful value into an error if it does not satisfy a given predicate. See cats.MonadError
     def ensure(error: => Throwable)(predicate: A => Boolean): IO[A] =
       ensureOr(_ => error)(predicate)
 
     // Turns a successful value into an error specified by the `error` function if it does not satisfy a given predicate. See cats.MonadError
-    def ensureOr(error: A => Throwable)(predicate: A => Boolean): IO[A] = IO {
-      this.runToEither match {
-        case Left(throwable) => raiseError(throwable)
-        case Right(value) if predicate(value) => pure(value)
-        case Right(value) => raiseError(error(value))
-      }
-    }.flatten
-
-    def bracketCase[B](use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] = IO {
-      this flatMap { resource =>
-        try {
-          import cats.syntax.apply._
-          use(resource) <* release(resource, ExitCase.complete)
-        } catch {
-          case t: Throwable =>
-            release(resource, ExitCase.error(t))
-            throw t
+    def ensureOr(error: A => Throwable)(predicate: A => Boolean): IO[A] =
+      IO {
+        this.runToEither match {
+          case Left(throwable)                  => raiseError(throwable)
+          case Right(value) if predicate(value) => pure(value)
+          case Right(value)                     => raiseError(error(value))
         }
-      }
-    }.flatten
+      }.flatten
+
+    def bracketCase[B](use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] =
+      IO {
+        this flatMap { resource =>
+          try {
+            import cats.syntax.apply._
+            use(resource) <* release(resource, ExitCase.complete)
+          } catch {
+            case t: Throwable =>
+              release(resource, ExitCase.error(t))
+              throw t
+          }
+        }
+      }.flatten
   }
 
   object IO {
@@ -138,43 +149,55 @@ object IOApp26Sync extends App {
     private case class Pure[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Eval[A](thunk: () => A) extends IO[A] {
       override def run(): A = thunk()
     }
+
     private case class Error[A](exception: Throwable) extends IO[A] {
       override def run(): A = throw exception
     }
+
     private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-      override def run(): Throwable = try {
-        io.run()
-        throw new NoSuchElementException("failed")
-      } catch {
-        case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
-        case throwable: Throwable => throwable
-      }
+
+      override def run(): Throwable =
+        try {
+          io.run()
+          throw new NoSuchElementException("failed")
+        } catch {
+          case nse: NoSuchElementException if nse.getMessage == "failed" => throw nse
+          case throwable: Throwable                                      => throwable
+        }
     }
+
     private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
       override def run(): A = thunk().run()
     }
+
     private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
       override def run(): B = f(src.run()).run()
     }
+
     private case class FromFuture[A](fa: Future[A]) extends IO[A] {
       override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
       // A solution of this problem would require a redesign of this simple IO Monod, which doesn't really support async computations.
     }
 
-    def pure[A](a: A): IO[A] = Pure { () => a }
+    def pure[A](a: A): IO[A] = Pure { () =>
+      a
+    }
     def now[A](a: A): IO[A] = pure(a)
 
     def raiseError[A](t: Throwable): IO[A] = Error[A](t)
 
-    def eval[A](a: => A): IO[A] = Eval { () => a }
+    def eval[A](a: => A): IO[A] = Eval { () =>
+      a
+    }
     def delay[A](a: => A): IO[A] = eval(a)
     def apply[A](a: => A): IO[A] = eval(a)
 
     def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
-    def defer[A](ioa: => IO[A]): IO[A] = suspend(ioa)
+    def defer[A](ioa: => IO[A]): IO[A]   = suspend(ioa)
 
     def fromTry[A](tryy: Try[A]): IO[A] =
       tryy.fold(IO.raiseError, IO.pure)
@@ -191,16 +214,20 @@ object IOApp26Sync extends App {
     implicit def ioMonad: Sync[IO] = new Sync[IO] {
 
       // Monad
-      override def pure[A](value: A): IO[A] = IO.pure(value)
-      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] = fa flatMap f
+      override def pure[A](value: A): IO[A]                              = IO.pure(value)
+      override def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B]        = fa flatMap f
       override def tailRecM[A, B](a: A)(f: A => IO[Either[A, B]]): IO[B] = ???
 
       // MonadError
       override def raiseError[A](e: Throwable): IO[A] = raiseError(e)
-      override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] = fa onErrorHandleWith f
+
+      override def handleErrorWith[A](fa: IO[A])(f: Throwable => IO[A]): IO[A] =
+        fa onErrorHandleWith f
 
       // Bracket
-      override def bracketCase[A, B](acquire: IO[A])(use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] =
+      override def bracketCase[A, B](
+          acquire: IO[A]
+      )(use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] =
         acquire.bracketCase(use)(release)
 
       // Sync
@@ -209,16 +236,15 @@ object IOApp26Sync extends App {
 
     implicit class syntax[A](ioa: IO[A]) { // provide corresponding methods of ApplicativeError/MonadError
 
-      def handleErrorWith(f: Throwable => IO[A]): IO[A] = ioa onErrorHandleWith f
-      def handleError(f: Throwable => A): IO[A] = ioa onErrorHandle f
+      def handleErrorWith(f: Throwable => IO[A]): IO[A]             = ioa onErrorHandleWith f
+      def handleError(f: Throwable => A): IO[A]                     = ioa onErrorHandle f
       def recoverWith(pf: PartialFunction[Throwable, IO[A]]): IO[A] = ioa onErrorRecoverWith pf
-      def recover(pf: PartialFunction[Throwable, A]): IO[A] = ioa onErrorRecover pf
+      def recover(pf: PartialFunction[Throwable, A]): IO[A]         = ioa onErrorRecover pf
 
       def bracket[B](use: A => IO[B])(release: A => IO[Unit]): IO[B] =
         ioa.bracketCase(use)((a, _) => release(a))
     }
   }
-
 
   println("\n-----")
 
@@ -249,7 +275,10 @@ object IOApp26Sync extends App {
   Thread sleep 2000L
 
   println("\n>>> Sync[F].suspend(Sync[F].pure(...)):")
-  def sync2[F[_]: Sync]: F[Int] = Sync[F].suspend { Sync[F].pure { println("suspended side effect"); 5 } }
+
+  def sync2[F[_]: Sync]: F[Int] = Sync[F].suspend {
+    Sync[F].pure { println("suspended side effect"); 5 }
+  }
   Thread sleep 2000L
   sync2[IO] foreach println
   //=> suspended side effect

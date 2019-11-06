@@ -7,7 +7,7 @@ case class Password(userId: Int, password: String)
 object Password {
 
   val passwordFile = "passwords.txt"
-  val passwordUrl = new URL("file:" + passwordFile)
+  val passwordUrl  = new URL("file:" + passwordFile)
 
   def parse(str: String): Password = {
     val list = str.split(":").toList

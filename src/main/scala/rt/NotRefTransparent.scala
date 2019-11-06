@@ -12,14 +12,14 @@ object NotRefTransparent extends App {
     ioa2
   }
 
-  func(println("hi"), println("hi"))        // prints "hi" twice
+  func(println("hi"), println("hi")) // prints "hi" twice
   //=> hi
   //=> hi
 
   println("-----")
 
   val x: Unit = println("hi")
-  func(x, x)                                // prints "hi" once
+  func(x, x) // prints "hi" once
   //=> hi
 
   // 'func' IS NOT referentially transparent!

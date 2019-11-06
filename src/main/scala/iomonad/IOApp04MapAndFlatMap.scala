@@ -9,8 +9,13 @@ object IOApp04MapAndFlatMap extends App {
 
   case class IO[A](run: () => A) {
 
-    def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
-    def map[B](f: A => B): IO[B] = IO { () => f(run()) }
+    def flatMap[B](f: A => IO[B]): IO[B] = IO { () =>
+      f(run()).run()
+    }
+
+    def map[B](f: A => B): IO[B] = IO { () =>
+      f(run())
+    }
     def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
   }
 
@@ -20,9 +25,15 @@ object IOApp04MapAndFlatMap extends App {
   // It is just a bunch of monadically composed functions which do not execute.
   //
   val program: IO[Unit] = for {
-    _       <- IO { () => print(s"Welcome to Scala!  What's your name?   ") }
-    name    <- IO { () => scala.io.StdIn.readLine }
-    _       <- IO { () => println(s"Well hello, $name!") }
+    _ <- IO { () =>
+          print(s"Welcome to Scala!  What's your name?   ")
+        }
+    name <- IO { () =>
+             scala.io.StdIn.readLine
+           }
+    _ <- IO { () =>
+          println(s"Well hello, $name!")
+        }
   } yield ()
 
   // Running the program's encapsulated Function0 produces the side effects.

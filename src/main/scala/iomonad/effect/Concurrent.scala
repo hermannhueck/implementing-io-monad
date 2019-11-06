@@ -6,11 +6,11 @@ trait Concurrent[F[_]] extends Async[F] {
 
   def start[A](fa: F[A]): F[Fiber[F, A]]
 
-  def racePair[A,B](fa: F[A], fb: F[B]): F[Either[(A, Fiber[F, B]), (Fiber[F, A], B)]]
+  def racePair[A, B](fa: F[A], fb: F[B]): F[Either[(A, Fiber[F, B]), (Fiber[F, A], B)]]
 
   def race[A, B](fa: F[A], fb: F[B]): F[Either[A, B]] =
     flatMap(racePair(fa, fb)) {
-      case Left((a, fiberB)) => map(fiberB.cancel)(_ => Left(a))
+      case Left((a, fiberB))  => map(fiberB.cancel)(_ => Left(a))
       case Right((fiberA, b)) => map(fiberA.cancel)(_ => Right(b))
     }
 
