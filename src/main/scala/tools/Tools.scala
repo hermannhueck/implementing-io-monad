@@ -38,25 +38,25 @@ trait Tools {
 
   def printCurrentThread(): Unit = println(currentThread)
 
-
   def wordCount(limit: Int): List[String] => List[(String, Int)] = { lines =>
     // println("-->> wordCount")
-    lines.mkString
+    lines
+      .mkString
       .toLowerCase
       .split("\\W+")
       .toList
       .map(_.filter(c => c.isLetter))
       .filter(_.length > 3)
       .groupBy(s => s)
-      .mapValues(_.length) // deprecated in 2.13
-      //.view.mapValues(_.length) // gives us a MapView[K, V]
+      // .mapValues(_.length) // deprecated in 2.13
+      .view
+      .mapValues(_.length) // gives us a MapView[K, V]
       .toList
       .filter(_._2 > limit) // return only words with occurences > limit
       .sortWith(_._2 > _._2)
   }
 
-
-  def using[A, CL <: {def close(): Unit}] (closeable: CL) (f: CL => A): A =
+  def using[A, CL <: { def close(): Unit }](closeable: CL)(f: CL => A): A =
     try {
       f(closeable)
     } finally {
