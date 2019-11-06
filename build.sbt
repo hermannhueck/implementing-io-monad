@@ -1,8 +1,8 @@
 import ScalacOptions._
 
 name := "implementing-io-monad"
-
-version := "0.0.1-SNAPSHOT"
+description := "own implementation of the IO Monad (supporting some of the cats-effect type classes)"
+version := "0.0.1"
 
 scalaVersion := "2.13.1"
 
