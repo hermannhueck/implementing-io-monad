@@ -17,12 +17,12 @@ trait App extends DelayedInit {
 
   def execBody(body: => Unit): Unit =
     Using.resource[Unit, Unit] {
-      prtTitleObjectName(this)
+      printHeaderWithProgramName(this)
     } { _ =>
       body
     } { _ =>
       val total = currentTime - executionStart
-      prtSubTitle("[total " + total + "ms]")
+      printTextInLine("[total " + total + "ms]")
     }
 
   override def delayedInit(body: => Unit): Unit = {

@@ -3,11 +3,12 @@ package util
 package object formatting {
 
   import build._
+  import Console._
 
   val sbtVersion       = BuildInfo.sbtVersion
   val scalaVersion     = BuildInfo.scalaVersion
   val buildInfo        = s"BuildInfo: sbt.version = $sbtVersion, scala.version = $scalaVersion"
-  val buildInfoColored = s"${Console.BLUE}$buildInfo${Console.RESET}"
+  val buildInfoColored = s"${BLUE}$buildInfo${RESET}"
   val buildInfoLong    = BuildInfo.toString
 
   def javaRuntimeInfo = {
@@ -15,40 +16,40 @@ package object formatting {
     val javaVersion = System.getProperty("java.version")
     s"Java Runtime: $javaVendor, $javaVersion"
   }
-  def javaRuntimeInfoColored = s"${Console.BLUE}$javaRuntimeInfo${Console.RESET}"
+  def javaRuntimeInfoColored = s"${BLUE}$javaRuntimeInfo${RESET}"
 
-  def prtTitle(
+  def printHeader(
       text: String,
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
       fill: String = "\u2500"
   ): Unit =
-    println(title(text, width, leading, trailing, fill))
+    println(header(text, width, leading, trailing, fill))
 
-  def title(
+  def header(
       text: String,
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
       fill: String = "\u2500"
   ): String = {
-    val textColored = s"${Console.BLUE}$text${Console.RESET}"
-    s"${subTitle(textColored, width, "", s"", fill)}" +
-      s"${subTitle(s"$javaRuntimeInfoColored", width, leading + "\n", s"$trailing", fill)}" +
-      s"${subTitle(s"$buildInfoColored", width, leading + "\n", s"$trailing", fill)}"
+    val textColored = s"${BLUE}$text${RESET}"
+    s"""|${textInLine(textColored, width, leading, trailing, fill)}
+        |${textInLine(s"$javaRuntimeInfoColored", width, leading, trailing, fill)}
+        |${textInLine(s"$buildInfoColored", width, leading, trailing, fill)}""".stripMargin
   }
 
-  def prtSubTitle(
+  def printTextInLine(
       text: String,
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
       fill: String = "\u2500"
   ): Unit =
-    println(subTitle(s"${Console.BLUE}$text${Console.RESET}", width, leading, trailing, fill))
+    println(textInLine(s"${BLUE}$text${RESET}", width, leading, trailing, fill))
 
-  def subTitle(
+  def textInLine(
       text: String,
       width: Int = 80,
       leading: String = "",
@@ -62,7 +63,7 @@ package object formatting {
     s"$leading$frontPad $text $endPad$trailing"
   }
 
-  def prtLine(
+  def printLine(
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
@@ -96,17 +97,17 @@ package object formatting {
     cn.substring(0, cn.length() - 1)
   }
 
-  def prtTitleObjectName(scalaObject: java.lang.Object) =
-    prtTitle(objectName(scalaObject))
+  def printHeaderWithProgramName(scalaObject: java.lang.Object) =
+    printHeader(objectName(scalaObject))
 
-  def prtSubTitleObjectName(scalaObject: java.lang.Object) =
-    prtSubTitle(objectName(scalaObject))
+  def printProgramNameInLine(scalaObject: java.lang.Object) =
+    printTextInLine(objectName(scalaObject))
 
-  def green(): Unit   = print(Console.GREEN)
-  def red(): Unit     = print(Console.RED)
-  def blue(): Unit    = print(Console.BLUE)
-  def yellow(): Unit  = print(Console.YELLOW)
-  def cyan(): Unit    = print(Console.CYAN)
-  def magenta(): Unit = print(Console.MAGENTA)
-  def reset(): Unit   = print(Console.RESET)
+  def printGreen(): Unit   = print(GREEN)
+  def printRed(): Unit     = print(RED)
+  def printBlue(): Unit    = print(BLUE)
+  def printYellow(): Unit  = print(YELLOW)
+  def printCyan(): Unit    = print(CYAN)
+  def printMagenta(): Unit = print(MAGENTA)
+  def printReset(): Unit   = print(RESET)
 }
