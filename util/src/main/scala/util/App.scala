@@ -22,7 +22,7 @@ trait App extends DelayedInit {
       body
     } { _ =>
       val total = currentTime - executionStart
-      printTextInLine("[total " + total + "ms]")
+      printFooter(s"[total: $total ms]")
     }
 
   override def delayedInit(body: => Unit): Unit = {

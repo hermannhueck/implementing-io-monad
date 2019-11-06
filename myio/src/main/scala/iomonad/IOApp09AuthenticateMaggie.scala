@@ -104,5 +104,4 @@ object IOApp09AuthenticateMaggie extends util.App {
   println(either)
   //=> Right(true)
 
-  println("-----\n")
 }

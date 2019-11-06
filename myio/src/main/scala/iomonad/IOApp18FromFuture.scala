@@ -176,5 +176,4 @@ object IOApp18FromFuture extends util.App {
     Thread sleep 1000L
   }
 
-  println("-----\n")
 }

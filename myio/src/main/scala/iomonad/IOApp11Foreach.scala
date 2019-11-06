@@ -146,5 +146,4 @@ object IOApp11Foreach extends util.App {
   checkMaggie runAsync authCallbackEither
   Thread sleep 500L
 
-  println("-----\n")
 }

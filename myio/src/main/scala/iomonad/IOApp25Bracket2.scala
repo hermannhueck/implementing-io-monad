@@ -262,5 +262,4 @@ object IOApp25Bracket2 extends util.App {
 
   Thread sleep 500L
 
-  println("-----\n")
 }

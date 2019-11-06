@@ -178,5 +178,4 @@ object IOApp19DeferFuture extends util.App {
     Thread sleep 1000L
   }
 
-  println("-----\n")
 }

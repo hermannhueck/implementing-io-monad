@@ -198,5 +198,4 @@ object IOApp16ADTSuspend extends util.App {
   //=> 5
   Thread sleep 2000L
 
-  println("-----\n")
 }

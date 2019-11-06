@@ -187,5 +187,4 @@ object IOApp20OnErrorHandleWith extends util.App {
   println(error1.onErrorHandle(completeHandler2).runToEither)
   println(error2.onErrorHandle(completeHandler2).runToEither)
 
-  println("-----\n")
 }

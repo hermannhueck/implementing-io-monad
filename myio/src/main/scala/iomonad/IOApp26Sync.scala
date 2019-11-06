@@ -285,5 +285,4 @@ object IOApp26Sync extends util.App {
   //=> 5
   Thread sleep 2000L
 
-  println("-----\n")
 }

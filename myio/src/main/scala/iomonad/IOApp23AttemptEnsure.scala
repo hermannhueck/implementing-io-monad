@@ -254,5 +254,4 @@ object IOApp23AttemptEnsure extends util.App {
   )
 
   Thread sleep 500L
-  println("-----\n")
 }

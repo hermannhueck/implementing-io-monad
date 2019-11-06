@@ -11,8 +11,6 @@ import scala.concurrent.Future
  */
 object FutureIsNotRT extends util.App {
 
-  println("\n-----")
-
   val future1: Future[(Int, Int)] = {
     val atomicInt           = new AtomicInteger(0)
     val future: Future[Int] = Future { atomicInt.incrementAndGet }
@@ -38,5 +36,4 @@ object FutureIsNotRT extends util.App {
   Thread.sleep(200L)
   println("-----")
   println("The results are not equal. --> Future IS NOT referentially transparent.")
-  println("-----\n")
 }

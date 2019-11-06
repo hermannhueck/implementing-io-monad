@@ -5,18 +5,16 @@ package object formatting {
   import build._
   import Console._
 
-  val sbtVersion       = BuildInfo.sbtVersion
-  val scalaVersion     = BuildInfo.scalaVersion
-  val buildInfo        = s"BuildInfo: sbt.version = $sbtVersion, scala.version = $scalaVersion"
-  val buildInfoColored = s"${BLUE}$buildInfo${RESET}"
-  val buildInfoLong    = BuildInfo.toString
+  val sbtVersion    = BuildInfo.sbtVersion
+  val scalaVersion  = BuildInfo.scalaVersion
+  val buildInfo     = s"BuildInfo: sbt.version = $sbtVersion, scala.version = $scalaVersion"
+  val buildInfoLong = BuildInfo.toString
 
   def javaRuntimeInfo = {
     val javaVendor  = System.getProperty("java.vendor")
     val javaVersion = System.getProperty("java.version")
     s"Java Runtime: $javaVendor, $javaVersion"
   }
-  def javaRuntimeInfoColored = s"${BLUE}$javaRuntimeInfo${RESET}"
 
   def printHeader(
       text: String,
@@ -34,10 +32,9 @@ package object formatting {
       trailing: String = "",
       fill: String = "\u2500"
   ): String = {
-    val textColored = s"${BLUE}$text${RESET}"
-    s"""|${textInLine(textColored, width, leading, trailing, fill)}
-        |${textInLine(s"$javaRuntimeInfoColored", width, leading, trailing, fill)}
-        |${textInLine(s"$buildInfoColored", width, leading, trailing, fill)}""".stripMargin
+    s"""|${textInLine(text, width, leading, trailing, fill, BLUE)}
+        |${textInLine(s"$javaRuntimeInfo", width, leading, trailing, fill, BLUE)}
+        |${textInLine(s"$buildInfo", width, leading, trailing, fill, BLUE)}""".stripMargin
   }
 
   def printTextInLine(
@@ -45,23 +42,44 @@ package object formatting {
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
-      fill: String = "\u2500"
+      fill: String = "\u2500",
+      color: String = ""
   ): Unit =
-    println(textInLine(s"${BLUE}$text${RESET}", width, leading, trailing, fill))
+    println(textInLine(text, width, leading, trailing, fill, color))
 
   def textInLine(
       text: String,
       width: Int = 80,
       leading: String = "",
       trailing: String = "",
-      fill: String = "\u2500"
+      fill: String = "\u2500",
+      color: String = ""
   ): String = {
+    val coloredText = if (color.isEmpty) text else s"$color$text$RESET"
     val frontPad    = fill * 10
     val startLength = (10 + text.length() + 2)
     val endLength   = if (startLength > width) 0 else width - startLength
     val endPad      = fill * (endLength + 9) // add 9 to adjust color escape chars
-    s"$leading$frontPad $text $endPad$trailing"
+    s"$leading$frontPad $coloredText $endPad$trailing"
   }
+
+  def printFooter(
+      text: String,
+      width: Int = 80,
+      leading: String = "",
+      trailing: String = "",
+      fill: String = "\u2500"
+  ): Unit =
+    println(footer(text, width, leading, trailing, fill))
+
+  def footer(
+      text: String,
+      width: Int = 80,
+      leading: String = "",
+      trailing: String = "",
+      fill: String = "\u2500"
+  ): String =
+    textInLine(text, width, leading, trailing, fill, BLUE)
 
   def printLine(
       width: Int = 80,

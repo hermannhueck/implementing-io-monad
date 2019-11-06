@@ -202,5 +202,4 @@ object IOApp15MonadInstance extends util.App {
   computeWithOption()
   computeWithFuture()
 
-  println("-----\n")
 }

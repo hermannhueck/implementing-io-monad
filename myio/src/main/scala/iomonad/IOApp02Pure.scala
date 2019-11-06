@@ -7,8 +7,6 @@ package iomonad
  */
 object IOApp02Pure extends util.App {
 
-  println("\n-----")
-
   // Program definition WITHOUT side effects. This program does nothing.
   // It is just a Function0[Unit].
   //
@@ -21,7 +19,4 @@ object IOApp02Pure extends util.App {
 
   // Running the program produces the side effects.
   program()
-  program()
-
-  println("-----\n")
 }

@@ -156,5 +156,4 @@ object IOApp12RaiseError extends util.App {
   //=> Left(java.lang.IllegalStateException: illegal state)
 
   Thread sleep 500L
-  println("-----\n")
 }

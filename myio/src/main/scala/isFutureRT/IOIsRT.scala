@@ -12,8 +12,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
  */
 object IOIsRT extends util.App {
 
-  println("\n-----")
-
   val io1: IO[(Int, Int)] = {
     val atomicInt   = new AtomicInteger(0)
     val io: IO[Int] = IO { atomicInt.incrementAndGet }
@@ -39,5 +37,4 @@ object IOIsRT extends util.App {
   Thread.sleep(200L)
   println("-----")
   println("The results are equal. --> IO IS referentially transparent.")
-  println("-----\n")
 }

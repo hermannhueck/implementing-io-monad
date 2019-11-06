@@ -190,5 +190,4 @@ object IOApp13Failed extends util.App {
   //=> Left(java.util.NoSuchElementException: failed)
 
   Thread sleep 500L
-  println("-----\n")
 }

@@ -5,8 +5,6 @@ package rt
  */
 object NotRefTransparent extends util.App {
 
-  println("\n-----")
-
   def func(ioa1: Unit, ioa2: Unit): Unit = {
     ioa1
     ioa2
@@ -24,5 +22,4 @@ object NotRefTransparent extends util.App {
 
   // 'func' IS NOT referentially transparent!
 
-  println("-----\n")
 }

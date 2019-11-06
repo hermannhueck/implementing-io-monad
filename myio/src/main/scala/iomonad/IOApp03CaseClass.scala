@@ -27,5 +27,4 @@ object IOApp03CaseClass extends util.App {
   program.run()
   program.run()
 
-  println("-----\n")
 }

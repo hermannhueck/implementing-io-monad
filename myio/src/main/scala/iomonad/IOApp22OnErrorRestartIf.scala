@@ -228,5 +228,4 @@ object IOApp22OnErrorRestartIf extends util.App {
   io.onErrorFallbackTo(IO.pure(0)).runToEither foreach println
 
   Thread sleep 500L
-  println("-----\n")
 }

@@ -128,5 +128,4 @@ object IOApp10RunAsync extends util.App {
   checkMaggie runAsync authCallbackEither
   Thread sleep 500L
 
-  println("-----\n")
 }

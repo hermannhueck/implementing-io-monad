@@ -126,5 +126,4 @@ object IOApp14PureComputations extends util.App {
   //=> 6227020800
 
   Thread sleep 500L
-  println("-----\n")
 }

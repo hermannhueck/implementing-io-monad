@@ -188,5 +188,4 @@ object IOApp20SyncRunMethodsTakeEC extends util.App {
     Thread sleep 1000L
   }
 
-  println("-----\n")
 }

@@ -77,5 +77,4 @@ object IOApp08RunSync extends util.App {
   //=> Right(())
 
   Thread.sleep(200L)
-  println("-----\n")
 }

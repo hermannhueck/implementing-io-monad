@@ -7,8 +7,6 @@ import iomonad.IOApp05PureAndEval.IO
  */
 object RefTransparent extends util.App {
 
-  println("\n-----")
-
   def putStrLn(line: String): IO[Unit] =
     IO.eval { println(line) }
 
@@ -31,5 +29,4 @@ object RefTransparent extends util.App {
 
   // 'func' IS referentially transparent!
 
-  println("-----\n")
 }

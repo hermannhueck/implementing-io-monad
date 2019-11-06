@@ -47,5 +47,4 @@ object IOApp05PureAndEval extends util.App {
   program.run()
   program.run()
 
-  println("-----\n")
 }

@@ -40,5 +40,4 @@ object IOApp04MapAndFlatMap extends util.App {
   program.run()
   program.run()
 
-  println("-----\n")
 }

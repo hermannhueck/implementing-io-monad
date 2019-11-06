@@ -139,5 +139,4 @@ object IOApp17FromTryAndFromEither extends util.App {
   val io2: IO[Seq[User]]                   = IO.fromEither(either)
   io1.runToEither foreach println
 
-  println("-----\n")
 }

@@ -13,5 +13,4 @@ object IOApp01Impure extends util.App {
   }
 
   program()
-  program()
 }

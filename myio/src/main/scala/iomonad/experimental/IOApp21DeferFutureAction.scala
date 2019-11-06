@@ -199,5 +199,4 @@ object IOApp21DeferFutureAction extends util.App {
     Thread sleep 1000L
   }
 
-  println("-----\n")
 }

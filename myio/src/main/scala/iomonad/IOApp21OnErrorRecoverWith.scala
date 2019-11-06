@@ -224,5 +224,4 @@ object IOApp21OnErrorRecoverWith extends util.App {
   println(error1.onErrorRecoverWith(partialHandler2).runToEither)
   println(error2.onErrorRecoverWith(partialHandler2).runToEither)
 
-  println("-----\n")
 }

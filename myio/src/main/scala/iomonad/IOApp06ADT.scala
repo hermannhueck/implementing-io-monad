@@ -61,5 +61,4 @@ object IOApp06ADT extends util.App {
   program.run()
   program.run()
 
-  println("-----\n")
 }

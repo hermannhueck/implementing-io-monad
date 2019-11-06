@@ -57,5 +57,4 @@ object IOApp07ADTFlatMap extends util.App {
   program.run()
   program.run()
 
-  println("-----\n")
 }
