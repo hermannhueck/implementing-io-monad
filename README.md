@@ -1,6 +1,7 @@
 # Implementing the IO Monad
 
-In this repo I provide my own implementation of the IO Monad and a presentation on this topic.
+In this repo I provide my own implementation of the IO Monad
+(supporting some of the cats-effect type classes) and a presentation on this topic.
 
 <br/>
 
