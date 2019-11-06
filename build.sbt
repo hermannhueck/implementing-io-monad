@@ -16,7 +16,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-effect" % "1.3.1" withSources () withJavadoc ()
+  "org.typelevel" %% "cats-effect" % "2.0.0"
 )
 
 // https://github.com/typelevel/kind-projector
