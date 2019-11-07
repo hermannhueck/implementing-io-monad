@@ -372,14 +372,14 @@ def func(ioa1: IO[Unit], ioa2: IO[Unit]): IO[Unit] =
     _ <- ioa2
   } yield ()
 
-func(putStrLn("hi"), putStrLn("hi")).run()   // prints "hi" twice
+func(putStrLn("hi"), putStrLn("hi")).unsafeRun()   // prints "hi" twice
 //=> hi
 //=> hi
 
 println("-----")
 
 val x: IO[Unit] = putStrLn("hi")
-func(x, x).run()                             // prints "hi" twice
+func(x, x).unsafeRun()                             // prints "hi" twice
 //=> hi
 //=> hi
 ```
@@ -476,7 +476,7 @@ val io1: IO[(Int, Int)] = {
     y <- io
   } yield (x, y)
 }
-io1.runToFuture onComplete println     // Success((1,2))
+io1.unsafeRunToFuture onComplete println     // Success((1,2))
 ```
 
 ```scala
@@ -487,7 +487,7 @@ val io2: IO[(Int, Int)] = {                      // same as io1, but inlined
     y <- IO { atomicInt.incrementAndGet }
   } yield (x, y)
 }
-io2.runToFuture onComplete println     // Success((1,2))    <-- same result
+io2.unsafeRunToFuture onComplete println     // Success((1,2))    <-- same result
 ```
 
 --
@@ -517,7 +517,7 @@ name: IOMonad
 def program(): Unit = {
   print("Welcome to Scala!  What's your name?   ")
   val name = scala.io.StdIn.readLine
-  println(s"Well hello, $name!")
+  println(s"Hello, $name!")
 }
 ```
 
@@ -546,7 +546,7 @@ val program: () => Unit =  // () => Unit  is syntactic sugar for:  Function0[Uni
   () => {
     print("Welcome to Scala!  What's your name?   ")
     val name = scala.io.StdIn.readLine
-    println(s"Well hello, $name!")
+    println(s"Hello, $name!")
   }
 ```
 
@@ -573,7 +573,7 @@ program()    // producing the side effects "at the end of the world"
 <br/>
 
 ```scala
-case class IO[A](run: () => A)
+case class IO[A](unsafeRun: () => A)
 ```
 
 --
@@ -584,7 +584,7 @@ val program: IO[Unit] = IO {
   () => {
     print("Welcome to Scala!  What's your name?   ")
     val name = scala.io.StdIn.readLine
-    println(s"Well hello, $name!")
+    println(s"Hello, $name!")
   }
 }
 ```
@@ -603,13 +603,13 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 
 ---
 
-## 4. *IO#map* and *IO#flatMap*
+## 4. *IO#map* &nbsp;and *IO#flatMap*
 <br/>
 
 ```scala
-case class IO[A](run: () => A) {
-  def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
-  def map[B](f: A => B): IO[B] = IO { () => f(run()) }
+case class IO[A](unsafeRun: () => A) {
+  def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(unsafeRun()).unsafeRun() }
+  def map[B](f: A => B): IO[B] = IO { () => f(unsafeRun()) }
   def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 }
 ```
@@ -620,7 +620,7 @@ case class IO[A](run: () => A) {
 val program: IO[Unit] = for {
   _       <- IO { () => print(s"Welcome to Scala!  What's your name?   ") }
   name    <- IO { () => scala.io.StdIn.readLine }
-  _       <- IO { () => println(s"Well hello, $name!") }
+  _       <- IO { () => println(s"Hello, $name!") }
 } yield ()
 ```
 
@@ -643,8 +643,8 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 ## 5. Companion object *IO* &nbsp;with *pure* &nbsp;and *eval*
 
 ```scala
-case class IO[A](run: () => A) {
-  def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(run()).run() }
+case class IO[A](unsafeRun: () => A) {
+  def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(unsafeRun()).unsafeRun() }
   def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
   def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
 }
@@ -661,7 +661,7 @@ val program: IO[Unit] = for {
   welcome <- IO.pure("Welcome to Scala!")
   _       <- IO.eval { print(s"$welcome  What's your name?   ") }
   name    <- IO.eval { scala.io.StdIn.readLine }        // simpler with IO.eval
-  _       <- IO.eval { println(s"Well hello, $name!") }
+  _       <- IO.eval { println(s"Hello, $name!") }
 } yield ()
 ```
 
@@ -680,22 +680,22 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 
 ---
 
-## 6. ADT *IO*
+## 6. *IO* &nbsp;as ADT
 
 ```scala
 sealed trait IO[+A] {
-  def run(): A
+  def unsafeRun(): A
 
-  def flatMap[B](f: A => IO[B]): IO[B] = IO { f(run()).run() }
+  def flatMap[B](f: A => IO[B]): IO[B] = IO { f(unsafeRun()).unsafeRun() }
   def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
 }
 object IO {
   // ADT sub types
   private case class Pure[A](thunk: () => A) extends IO[A] {
-    override def run(): A = thunk()
+    override def unsafeRun(): A = thunk()
   }
   private case class Eval[A](thunk: () => A) extends IO[A] {
-    override def run(): A = thunk()
+    override def unsafeRun(): A = thunk()
   }
 
   def pure[A](a: A): IO[A] = Pure { () => a }
@@ -732,7 +732,7 @@ sealed trait IO[+A] {
 object IO {
   // ADT sub types
   private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
-    override def run(): B = f(src.run()).run()
+    override def unsafeRun(): B = f(src.unsafeRun()).unsafeRun()
   }
 }
 ```
@@ -766,7 +766,7 @@ object IO {
 ## IO Monad - What is to come?
 <br/>
 
-- Sync and async run methods
+- Sync and async unsafeRun methods
 
 - More smart constructors
 
@@ -782,15 +782,15 @@ object IO {
 
 ---
 
-## 8. Sync run* methods
+## 8. Sync *unsafeRun* &nbsp;methods
 <br/>
 
 ```scala
-case class IO[A](run: () => A) {
+case class IO[A](unsafeRun: () => A) {
 
-  def runToTry: Try[A] = Try { run() }
+  def unsafeRunToTry: Try[A] = Try { unsafeRun() }
 
-  def runToEither: Either[Throwable, A] = runToTry.toEither
+  def unsafeRunToEither: Either[Throwable, A] = unsafeRunToTry.toEither
 }
 ```
 
@@ -801,16 +801,16 @@ case class IO[A](run: () => A) {
 
 val value: Unit = program.unsafeRun()                                 // ()
 
-val tryy: Try[Unit] = program.runToTry                          // Success(())
+val tryy: Try[Unit] = program.unsafeRunToTry                          // Success(())
 
-val either: Either[Throwable, Unit] = program.runToEither       // Right(())
+val either: Either[Throwable, Unit] = program.unsafeRunToEither       // Right(())
 ```
 <br/>
 --
 
-- *run* may throw an exception.
+- *unsafeRun* may throw an exception.
 
-- *runToTry* and *runToEither* catch any exception.
+- *unsafeRunToTry* and *unsafeRunToEither* catch any exception.
 
 ---
 
@@ -825,13 +825,13 @@ val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
 // running checkMaggie synchronously ...
 
-val value: Boolean = checkMaggie.run()
+val value: Boolean = checkMaggie.unsafeRun()
 // true
 
-val tryy: Try[Boolean] = checkMaggie.runToTry
+val tryy: Try[Boolean] = checkMaggie.unsafeRunToTry
 // Success(true)
 
-val either: Either[Throwable, Boolean] = checkMaggie.runToEither
+val either: Either[Throwable, Boolean] = checkMaggie.unsafeRunToEither
 // Right(true)
 
 ```
@@ -845,36 +845,36 @@ val either: Either[Throwable, Boolean] = checkMaggie.runToEither
 
 ---
 
-## 10. Async run* methods
+## 10. Async _unsafeRun*_ methods
 <br/>
 
 ```scala
-case class IO[A](run: () => A) {
+case class IO[A](unsafeRun: () => A) {
 
-  def runToFuture(implicit ec: ExecutionContext): Future[A] =
-    Future { run() }
+  def unsafeRunToFuture(implicit ec: ExecutionContext): Future[A] =
+    Future { unsafeRun() }
 
-  def runOnComplete(callback: Try[A] => Unit)
+  def unsafeRunOnComplete(callback: Try[A] => Unit)
                                       (implicit ec: ExecutionContext): Unit =
-    runToFuture onComplete callback
+    unsafeRunToFuture onComplete callback
 
-  def runAsync(callback: Either[Throwable, A] => Unit)
+  def unsafeRunAsync(callback: Either[Throwable, A] => Unit)
                                       (implicit ec: ExecutionContext): Unit =
-    runOnComplete(tryy => callback(tryy.toEither))
+    unsafeRunOnComplete(tryy => callback(tryy.toEither))
 }
 ```
 <br/>
 
 --
 
-- All async run* methods take an implicit EC.
+- All async _unsafeRun*_ methods take an implicit EC.
 
 - Unlike *Future* the EC is not needed to create an *IO*, only to run it.
 
 ---
 
 <br/>
-### Using the async run* methods
+### Using the async _unsafeRun*_ methods
 <br/>
 
 ```scala
@@ -890,12 +890,12 @@ val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
 
 implicit val ec: ExecutionContext = ExecutionContext.global
 
-val future: Future[Boolean] = checkMaggie.runToFuture
+val future: Future[Boolean] = checkMaggie.unsafeRunToFuture
 future onComplete tryCallback                              //=> true
 
-checkMaggie runOnComplete tryCallback                      //=> true
+checkMaggie unsafeRunOnComplete tryCallback                      //=> true
 
-checkMaggie runAsync eitherCallback                        //=> true
+checkMaggie unsafeRunAsync eitherCallback                        //=> true
 ```
 
 --
@@ -914,10 +914,10 @@ def eitherCallback[A]: Either[Throwable, A] => Unit = either =>
 <br/>
 
 ```scala
-case class IO[A](run: () => A) {
+case class IO[A](unsafeRun: () => A) {
 
   def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
-    runAsync {
+    unsafeRunAsync {
       case Left(ex) => ec.reportFailure(ex)
       case Right(value) => f(value)
     }
@@ -939,7 +939,7 @@ authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
 
 - It takes a callback for the successful result value.
 
-- *foreach* swallows exceptions. Prefer *runAsync*!
+- *foreach* swallows exceptions. Prefer *unsafeRunAsync*!
 
 ---
 
@@ -950,10 +950,11 @@ authenticate("maggie", "maggie-pwXXX") foreach println    //=> false
 object IO {
   // ADT sub types
   private case class Error[A](exception: Throwable) extends IO[A] {
-    override def run(): A = throw exception
+    override def unsafeRun(): A = throw exception
   }
 
   def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
+  def fail[A](t: Throwable): IO[A] = raiseError(t)
 }
 ```
 <br/>
@@ -968,13 +969,13 @@ object IO {
 ```scala
 val ioError: IO[Int] = IO.raiseError[Int](
                                 new IllegalStateException("illegal state"))
-println(ioError.runToEither)
+println(ioError.unsafeRunToEither)
 //=> Left(java.lang.IllegalStateException: illegal state)
 ```
 
 ---
 
-## 13. *IO#failed* (returns a failed projection).
+## 13. *IO#failed* &nbsp;(returns a failed projection).
 
 ```scala
 sealed trait IO[+A] {
@@ -984,8 +985,8 @@ sealed trait IO[+A] {
 object IO {
   // ADT sub types
   private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-    override def run(): Throwable = try {
-      io.run()
+    override def unsafeRun(): Throwable = try {
+      io.unsafeRun()
       throw new NoSuchElementException("failed")
     } catch {
       case nse: NoSuchElementException if nse.getMessage == "failed" =>
@@ -1011,18 +1012,18 @@ object IO {
 ```scala
 val ioError: IO[Int] = IO.raiseError[Int](
                                 new IllegalStateException("illegal state"))
-println(ioError.runToEither)
+println(ioError.unsafeRunToEither)
 //=> Left(java.lang.IllegalStateException: illegal state)
 
 val failed: IO[Throwable] = ioError.failed
-println(failed.runToEither)
+println(failed.unsafeRunToEither)
 //=> Right(java.lang.IllegalStateException: illegal state)
 
 val ioSuccess = IO.pure(5)
-println(ioSuccess.runToEither)
+println(ioSuccess.unsafeRunToEither)
 //=> Right(5)
 
-println(ioSuccess.failed.runToEither)
+println(ioSuccess.failed.unsafeRunToEither)
 //=> Left(java.util.NoSuchElementException: failed)
 ```
 
@@ -1072,7 +1073,7 @@ io foreach { result => println(s"result = $result") }
 sealed trait IO[+A] {
 
   def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
-  def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+  def map[B](f: A => B): IO[B] = flatMap(f andThen pure)
 }
 
 object IO {
@@ -1166,7 +1167,7 @@ future foreach { result => println(s"result = $result") }       //=> 6227020800
 
 ---
 
-## 16. *IO.defer* and *IO.suspend*
+## 16. *IO.defer* &nbsp;and *IO.suspend*
 <br/>
 
 ```scala
@@ -1174,7 +1175,7 @@ object IO {
 
   // ADT sub types
   private case class Suspend[A](thunk: () => IO[A]) extends IO[A] {
-    override def run(): A = thunk().run()
+    override def unsafeRun(): A = thunk().unsafeRun()
   }
 
   def suspend[A](ioa: => IO[A]): IO[A] = Suspend(() => ioa)
@@ -1218,7 +1219,7 @@ io2 foreach println
 
 ---
 
-## 17. *IO.fromTry* and *IO.fromEither*
+## 17. *IO.fromTry* &nbsp;and *IO.fromEither*
 <br/>
 
 ```scala
@@ -1253,7 +1254,7 @@ object IO {
 
   // ADT sub types
   private case class FromFuture[A](fa: Future[A]) extends IO[A] {
-    override def run(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
+    override def unsafeRun(): A = Await.result(fa, Duration.Inf) // BLOCKING!!!
   }
 
   def fromFuture[A](future: Future[A]): IO[A] = FromFuture(future)
