@@ -12,6 +12,7 @@ object ScalacOptions {
     "-opt-warnings",             // enable optimizer warnings
     "-opt:l:inline",             // enable inline optimizations ...
     "-opt-inline-from:<source>", // ... from source files
+    "-Xsource:2.13",             // Treat compiler input as Scala source for scala-2.13
     "-Xcheckinit",               // wrap field accessors to throw an exception on uninitialized access
     "-Xlint",                    // enable handy linter warnings
     // "-Xfatal-warnings",       // fail the compilation if there are any warnings
