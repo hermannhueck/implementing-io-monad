@@ -1,177 +1,240 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Implementing the IO Monad</title>
 
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <meta name="keywords" content="IO-Monad,Future,Scala,Monix-Task">
-    <meta name="description" content="A presentation that my implementation of the IO Monad in Scala">
+<head>
+  <title>Implementing the IO Monad</title>
 
-    <style type="text/css">
-      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
-      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
-      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="keywords" content="IO-Monad,Future,Scala,Monix-Task">
+  <meta name="description" content="A presentation of my IO Monad implementation in Scala">
 
-      body {
-        font-family: 'Droid Serif';
-      }
-      h1, h2, h3 {
-        font-family: 'Yanone Kaffeesatz';
-        font-weight: 400;
-        margin-bottom: 0;
-      }
-      .remark-slide-content h1 { font-size: 4em; }
-      .remark-slide-content h2 { font-size: 2.5em; }
-      .remark-slide-content h3 { font-size: 1.6em; }
-      .footnote {
-        position: absolute;
-        bottom: 3em;
-      }
-      li p { line-height: 1.25em; }
-      .red { color: #fa0000; }
-      .large { font-size: 2em; }
-      a, a > code {
-        color: rgb(249, 38, 114);
-        text-decoration: none;
-      }
-      code {
-        background: #e7e8e2;
-        border-radius: 5px;
-      }
-      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
-      .remark-code-line-highlighted     { background-color: #373832; }
-      .pull-left {
-        float: left;
-        width: 47%;
-      }
-      .pull-right {
-        float: right;
-        width: 47%;
-      }
-      .pull-right ~ p {
-        clear: both;
-      }
-      #slideshow .slide .content code {
-        font-size: 0.8em;
-      }
-      #slideshow .slide .content pre code {
-        font-size: 0.9em;
-        padding: 15px;
-      }
-      .inverse {
-        background: #014908e1;
-        color: #f3f3f3;
-        text-shadow: 0 0 20px #333;
-      }
-      .inverse h1, .inverse h2 {
-        color: #f3f3f3;
-        line-height: 0.8em;
-      }
+  <style type="text/css">
+    @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+    @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+    @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
 
-      /* Slide-specific styling */
-      #slide-inverse .footnote {
-        bottom: 12px;
-        left: 20px;
-      }
-      #slide-how .slides {
-        font-size: 0.9em;
-        position: absolute;
-        top:  151px;
-        right: 140px;
-      }
-      #slide-how .slides h3 {
-        margin-top: 0.2em;
-      }
-      #slide-how .slides .first, #slide-how .slides .second {
-        padding: 1px 20px;
-        height: 90px;
-        width: 120px;
-        -moz-box-shadow: 0 0 10px #777;
-        -webkit-box-shadow: 0 0 10px #777;
-        box-shadow: 0 0 10px #777;
-      }
-      #slide-how .slides .first {
-        background: #fff;
-        position: absolute;
-        top: 20%;
-        left: 20%;
-        z-index: 1;
-      }
-      #slide-how .slides .second {
-        position: relative;
-        background: #fff;
-        z-index: 0;
-      }
+    body {
+      font-family: 'Droid Serif';
+    }
 
-      /* Two-column layout */
-      .left-column {
-        color: #777;
-        width: 20%;
-        height: 92%;
-        float: left;
-      }
-      .left-column h2:last-of-type, .left-column h3:last-child {
-        color: #000;
-      }
-      .right-column {
-        width: 75%;
-        float: right;
-        padding-top: 1em;
-      }
+    h1,
+    h2,
+    h3 {
+      font-family: 'Yanone Kaffeesatz';
+      font-weight: 400;
+      margin-bottom: 0;
+    }
 
-      /* Two-column layout 50/50 */
-      .left-column-50 {
-        width: 49%;
-        float: left;
-      }
-      .right-column-50 {
-        width: 49%;
-        float: right;
-      }
+    .remark-slide-content h1 {
+      font-size: 4em;
+    }
 
-      .tiny-font {
-        font-size: 1em
-      }
+    .remark-slide-content h2 {
+      font-size: 2.5em;
+    }
 
-      .medium-font {
-        font-size: 1.25em
-      }
+    .remark-slide-content h3 {
+      font-size: 1.6em;
+    }
 
-      .large-font {
-        font-size: 1.5em
-      }
+    .footnote {
+      position: absolute;
+      bottom: 4em;
+    }
 
-      .xlarge-font {
-        font-size: 1.75em
-      }
+    .footnote2 {
+      position: absolute;
+      bottom: 2em;
+    }
 
-      table {
-        font-family: arial, sans-serif;
-        border-collapse: collapse;
-        width: 100%;
-      }
+    li p {
+      line-height: 1.25em;
+    }
 
-      td, th {
-        border: 1px solid #dddddd;
-        text-align: left;
-        padding: 8px;
-      }
+    .red {
+      color: #fa0000;
+    }
 
-      tr:nth-child(odd) {
-        background-color: #dddddd;
-      }
-    </style>
-  </head>
-  <body>
+    .large {
+      font-size: 2em;
+    }
 
-<textarea id="source">
+    a,
+    a>code {
+      color: rgb(249, 38, 114);
+      text-decoration: none;
+    }
+
+    code {
+      background: #e7e8e2;
+      border-radius: 5px;
+    }
+
+    .remark-code,
+    .remark-inline-code {
+      font-family: 'Ubuntu Mono';
+    }
+
+    .remark-code-line-highlighted {
+      background-color: #373832;
+    }
+
+    .pull-left {
+      float: left;
+      width: 47%;
+    }
+
+    .pull-right {
+      float: right;
+      width: 47%;
+    }
+
+    .pull-right~p {
+      clear: both;
+    }
+
+    #slideshow .slide .content code {
+      font-size: 0.8em;
+    }
+
+    #slideshow .slide .content pre code {
+      font-size: 0.9em;
+      padding: 15px;
+    }
+
+    .inverse {
+      background: #012908ec;
+      color: #f3f3f3;
+      text-shadow: 0 0 20px #333;
+    }
+
+    .inverse h1,
+    .inverse h2 {
+      color: #f3f3f3;
+      line-height: 0.8em;
+    }
+
+    /* Slide-specific styling */
+    #slide-inverse .footnote {
+      bottom: 12px;
+      left: 20px;
+    }
+
+    #slide-how .slides {
+      font-size: 0.9em;
+      position: absolute;
+      top: 151px;
+      right: 140px;
+    }
+
+    #slide-how .slides h3 {
+      margin-top: 0.2em;
+    }
+
+    #slide-how .slides .first,
+    #slide-how .slides .second {
+      padding: 1px 20px;
+      height: 90px;
+      width: 120px;
+      -moz-box-shadow: 0 0 10px #777;
+      -webkit-box-shadow: 0 0 10px #777;
+      box-shadow: 0 0 10px #777;
+    }
+
+    #slide-how .slides .first {
+      background: #fff;
+      position: absolute;
+      top: 20%;
+      left: 20%;
+      z-index: 1;
+    }
+
+    #slide-how .slides .second {
+      position: relative;
+      background: #fff;
+      z-index: 0;
+    }
+
+    /* Two-column layout */
+    .left-column {
+      color: #777;
+      width: 20%;
+      height: 92%;
+      float: left;
+    }
+
+    .left-column h2:last-of-type,
+    .left-column h3:last-child {
+      color: #000;
+    }
+
+    .right-column {
+      width: 75%;
+      float: right;
+      padding-top: 1em;
+    }
+
+    /* Two-column layout 50/50 */
+    .left-column-50 {
+      width: 49%;
+      float: left;
+    }
+
+    .right-column-50 {
+      width: 49%;
+      float: right;
+    }
+
+    .micro-font {
+      font-size: 0.5em
+    }
+
+    .mini-font {
+      font-size: 0.75em
+    }
+
+    .small-font {
+      font-size: 1em
+    }
+
+    .medium-font {
+      font-size: 1.25em
+    }
+
+    .large-font {
+      font-size: 1.5em
+    }
+
+    .xlarge-font {
+      font-size: 1.75em
+    }
+
+    table {
+      font-family: arial, sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    td,
+    th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+
+    tr:nth-child(0) {
+      background-color: #dddddd;
+    }
+  </style>
+</head>
+
+<body>
+
+  <textarea id="source">
 
 name: main-template
 layout: true
-class: left, top
-<!---
 class: left, top, inverse
--->
 
 ---
 
@@ -193,7 +256,8 @@ https://github.com/hermannhueck/implementing-io-monad
 # Abstract
 <br/>
 
-With my simple implementation I wanted to demonstrate the basic ideas of th IO Monad.
+With my simple implementation I demonstrate the basic ideas of the IO Monad.
+It also implements the basic cats-effect type classes (MonadError, Bracket, Sync).
 
 My impl of the IO Monad is just a feasibility study, not production code!
 
@@ -233,23 +297,26 @@ name: ReferentialTransparency
 
 ---
 
-class: large-font
-
+<br/>
 ## Referential Transparency
 <br/>
 
-An expression is called referentially transparent if it can be replaced with its corresponding value
+An expression or function is called referentially transparent, if it can be replaced with its corresponding value
 without changing the program's behavior.
 
-This requires that the expression is <u>___pure___</u>, that is to say the expression value must be
-the same for the same inputs and its evaluation must have <u>___no side effects___</u>.
+Such an expression of function is:
 
-.footnote[
+- <u>**total**</u>: It returns an output for every input.
+- <u>**deterministic**</u>: It returns the same output for the same input.
+- <u>**pure**</u>: It' only effect is computing the output. (no side effects)
+
+.footnote2[
 https://en.wikipedia.org/wiki/Referential_transparency
 ]
 
 ---
 
+<br/>
 ## Referential Transparency Benefits
 <br/>
 
@@ -260,7 +327,7 @@ https://en.wikipedia.org/wiki/Referential_transparency
 - Potential compiler optimizations (more in Haskell than in Scala)<br/>
   (e.g. memoization, parallelisation, compute expressions at compile time)
 
-.footnote[
+.footnote2[
 "What Referential Transparency can do for you"<br/>
 Talk by Luka Jacobowitz at ScalaIO 2017<br/>
 https://www.youtube.com/watch?v=X-cEGEJMx_4
@@ -268,7 +335,8 @@ https://www.youtube.com/watch?v=X-cEGEJMx_4
 
 ---
 
-## *func* <u>is not</u> referentially transparent!
+<br/>
+## This function <u>is not</u> referentially transparent!
 <br/>
 
 ```scala
@@ -290,7 +358,8 @@ func(x, x)                                // prints "hi" once
 
 ---
 
-## *func* <u>is</u> referentially transparent!
+<br/>
+## This function <u>is</u> referentially transparent!
 <br/>
 
 ```scala
@@ -331,6 +400,7 @@ name: FutureReferentiallyTransparent
 ---
 
 ## Is *Future* referentially transparent?
+<br/>
 
 ```scala
 val future1: Future[(Int, Int)] = {
@@ -341,30 +411,29 @@ val future1: Future[(Int, Int)] = {
     y <- future
   } yield (x, y)
 }
-
 future1 onComplete println     // Success((1,1))
 ```
 
 ```scala
-// same as future1, but inlined
-val future2: Future[(Int, Int)] = {
+val future2: Future[(Int, Int)] = {         // same as future1, but inlined
   val atomicInt = new AtomicInteger(0)
   for {
     x <- Future { atomicInt.incrementAndGet }
     y <- Future { atomicInt.incrementAndGet }
   } yield (x, y)
 }
-
 future2 onComplete println     // Success((1,2))    <-- not the same result
 ```
 
 --
 
 ## No!
+Inlining changes the meaning of the program.
 
 ---
 
 ## Is Monix *Task* referentially transparent?
+<br/>
 
 ```scala
 val task1: Task[(Int, Int)] = {
@@ -375,20 +444,17 @@ val task1: Task[(Int, Int)] = {
     y <- task
   } yield (x, y)
 }
-
 task1 runAsync println     // Success((1,2))
 ```
 
 ```scala
-// same as task1, but inlined
-val task2: Task[(Int, Int)] = {
+val task2: Task[(Int, Int)] = {                // same as task1, but inlined
   val atomicInt = new AtomicInteger(0)
   for {
     x <- Task { atomicInt.incrementAndGet }
     y <- Task { atomicInt.incrementAndGet }
   } yield (x, y)
 }
-
 task2 runAsync println     // Success((1,2))    <-- same result
 ```
 
@@ -399,6 +465,7 @@ task2 runAsync println     // Success((1,2))    <-- same result
 ---
 
 ## Is my IO Monad referentially transparent?
+<br/>
 
 ```scala
 val io1: IO[(Int, Int)] = {
@@ -409,20 +476,17 @@ val io1: IO[(Int, Int)] = {
     y <- io
   } yield (x, y)
 }
-
 io1.runToFuture onComplete println     // Success((1,2))
 ```
 
 ```scala
-// same as io1, but inlined
-val io2: IO[(Int, Int)] = {
+val io2: IO[(Int, Int)] = {                      // same as io1, but inlined
   val atomicInt = new AtomicInteger(0)
   for {
     x <- IO { atomicInt.incrementAndGet }
     y <- IO { atomicInt.incrementAndGet }
   } yield (x, y)
 }
-
 io2.runToFuture onComplete println     // Success((1,2))    <-- same result
 ```
 
@@ -500,7 +564,8 @@ program()    // producing the side effects "at the end of the world"
 
 - Produces side effects only when run (at the end of the world)
 
-- *program* can be a <u>val</u> (if no parameters are passed to it)
+- *program* is a <u>**val**</u>.<br/>
+  (It can be manipulated and passed around like an *Int* or *String*.)
 
 ---
 
@@ -527,7 +592,7 @@ val program: IO[Unit] = IO {
 --
 
 ```scala
-program.run()    // producing the side effects "at the end of the world"
+program.unsafeRun()    // producing the side effects "at the end of the world"
 ```
 <br/>
 --
@@ -562,20 +627,20 @@ val program: IO[Unit] = for {
 --
 
 ```scala
-program.run()    // producing the side effects "at the end of the world"
+program.unsafeRun()    // producing the side effects "at the end of the world"
 ```
 <br/>
 --
 
-- With *map* and *flatMap* *IO[A]* is monadic (but it is not yet a Monad).
+- With *map* and *flatMap* *IO[A]* is monadic (but not yet a Monad).
 
-- *IO* is ready for for-comprehensions.
+- *IO* can now be used in for-comprehensions.
 
 - This allows the composition of programs from smaller components.
 
 ---
 
-## 5. Companion object *IO* with *pure* and *eval*
+## 5. Companion object *IO* &nbsp;with *pure* &nbsp;and *eval*
 
 ```scala
 case class IO[A](run: () => A) {
@@ -603,7 +668,7 @@ val program: IO[Unit] = for {
 --
 
 ```scala
-program.run()    // producing the side effects "at the end of the world"
+program.unsafeRun()    // producing the side effects "at the end of the world"
 ```
 --
 
@@ -656,12 +721,15 @@ object IO {
 ```scala
 sealed trait IO[+A] {
 
-  def flatMap[B](f: A => IO[B]): IO[B] = FlatMap(this, f)
-  def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
+  def flatMap[B](f: A => IO[B]): IO[B] =
+    FlatMap(this, f)
+
+  def map[B](f: A => B): IO[B] =
+    // flatMap(a => pure(f(a))) // is equivalent to:
+    flatMap(f andThen pure)
 }
 
 object IO {
-
   // ADT sub types
   private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
     override def run(): B = f(src.run()).run()
@@ -678,7 +746,11 @@ object IO {
 
 ---
 
-###IO Monad - Basic Setup
+<br/>
+## IO Monad - What we implemented:
+<br/>
+
+- Using a function instead of a method, *val* instead of *def*
 
 - A *Function0* wrapped in a case class
 
@@ -688,9 +760,11 @@ object IO {
 
 - case class converted to ADT
 
---
+---
 
-### What is to come?
+<br/>
+## IO Monad - What is to come?
+<br/>
 
 - Sync and async run methods
 
@@ -725,7 +799,7 @@ case class IO[A](run: () => A) {
 ```scala
 // running the program synchronously ...
 
-val value: Unit = program.run()                                 // ()
+val value: Unit = program.unsafeRun()                                 // ()
 
 val tryy: Try[Unit] = program.runToTry                          // Success(())
 
@@ -736,7 +810,7 @@ val either: Either[Throwable, Unit] = program.runToEither       // Right(())
 
 - *run* may throw an exception.
 
-- *runToTry* and *runToEither* avoid that.
+- *runToTry* and *runToEither* catch any exception.
 
 ---
 
@@ -766,6 +840,8 @@ val either: Either[Throwable, Boolean] = checkMaggie.runToEither
 --
 
 - The previous example was interactive ... not well suited for async IO.
+
+- The *IO* impl remains unchanged in this step.
 
 ---
 
@@ -1347,38 +1423,39 @@ https://github.com/hermannhueck/implementing-io-monad
 
 </textarea>
 
-    <script src="remark-latest.min.js" type="text/javascript">
-    </script>
-    <script type="text/javascript">
-      var slideshow = remark.create({
-        // sourceUrl: 'some-source.md',
+  <script src="remark-latest.min.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+    var slideshow = remark.create({
+      // sourceUrl: 'some-source.md',
 
-        // Set the slideshow display ratio
-        // Default: '4:3'
-        // Alternatives: '16:9', ...
-        ratio: '4:3',
+      // Set the slideshow display ratio
+      // Default: '4:3'
+      // Alternatives: '16:9', ...
+      ratio: '4:3',
 
-        // Navigation options
-        navigation: {
-          // Enable or disable navigating using scroll
-          // Default: true
-          // Alternatives: false
-          scroll: false,
+      // Navigation options
+      navigation: {
+        // Enable or disable navigating using scroll
+        // Default: true
+        // Alternatives: false
+        scroll: false,
 
-          // Enable or disable navigation using touch
-          // Default: true
-          // Alternatives: false
-          touch: true,
+        // Enable or disable navigation using touch
+        // Default: true
+        // Alternatives: false
+        touch: true,
 
-          // Enable or disable navigation using click
-          // Default: false
-          // Alternatives: true
-          click: false
-        },
+        // Enable or disable navigation using click
+        // Default: false
+        // Alternatives: true
+        click: false
+      },
 
-        // Enable or disable counting of incremental slides in the slide counting
-        countIncrementalSlides: true
-      });
-    </script>
-  </body>
+      // Enable or disable counting of incremental slides in the slide counting
+      countIncrementalSlides: true
+    });
+  </script>
+</body>
+
 </html>
