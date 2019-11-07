@@ -1,6 +1,6 @@
 package rt
 
-import iomonad.IOApp05PureAndEval.IO
+import myio.io05.IO
 
 /*
   see: https://typelevel.org/blog/2017/05/02/io-monad-for-cats.html
@@ -16,14 +16,14 @@ object RefTransparent extends util.App {
       _ <- ioa2
     } yield ()
 
-  func(putStrLn("hi"), putStrLn("hi")).run() // prints "hi" twice
+  func(putStrLn("hi"), putStrLn("hi")).unsafeRun() // prints "hi" twice
   //=> hi
   //=> hi
 
   println("-----")
 
   val x: IO[Unit] = putStrLn("hi")
-  func(x, x).run() // prints "hi" twice
+  func(x, x).unsafeRun() // prints "hi" twice
   //=> hi
   //=> hi
 
