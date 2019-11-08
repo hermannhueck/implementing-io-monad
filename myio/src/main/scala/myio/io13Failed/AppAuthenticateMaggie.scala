@@ -22,6 +22,16 @@ object AppAuthenticateMaggie extends util.App {
                         }
     } yield isAuthenticated
 
+  IO(getUsers).unsafeRun() foreach println
+  println
+
+  IO(getPasswords).unsafeRun() foreach println
+
+  println("\n>>> IO#unsafeRun: authenticate:")
+  println(authenticate("maggie", "maggie-pw").unsafeRun())
+  println(authenticate("maggieXXX", "maggie-pw").unsafeRun())
+  println(authenticate("maggie", "maggie-pwXXX").unsafeRun())
+
   implicit val ec: ExecutionContext = ExecutionContext.global
 
   IO(getUsers) foreach { users =>
@@ -44,6 +54,11 @@ object AppAuthenticateMaggie extends util.App {
   Thread sleep 200L
 
   val checkMaggie: IO[Boolean] = authenticate("maggie", "maggie-pw")
+
+  println("\n>>> IO#unsafeRun:")
+  val value: Boolean = checkMaggie.unsafeRun()
+  println(value)
+  //=> true, may throw an Exception
 
   println("\n>>> IO#unsafeRunToTry:")
   val tryy: Try[Boolean] = checkMaggie.unsafeRunToTry

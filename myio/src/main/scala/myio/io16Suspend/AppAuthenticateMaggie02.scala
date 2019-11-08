@@ -4,7 +4,7 @@ import myio.auth._
 
 import scala.concurrent.ExecutionContext
 
-object AppAuthenticateMaggie extends util.App {
+object AppAuthenticateMaggie02 extends util.App {
 
   import Password._
   import User._

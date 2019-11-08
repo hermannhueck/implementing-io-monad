@@ -15,6 +15,25 @@ object AppOddEven extends util.App {
       throw new IllegalStateException("odd number")
   }
 
+  println("\n----- onErrorRestartIf:")
+
+  io.onErrorRestartIf {
+    case _: IllegalStateException => true
+    case _                        => false
+  }.unsafeRunToEither foreach println
+
+  Thread sleep 500L
+  println("\n----- onErrorRestart:")
+
+  io.onErrorRestart(3).unsafeRunToEither foreach println
+
+  Thread sleep 500L
+  println("\n----- onErrorFallbackTo:")
+
+  io.onErrorFallbackTo(IO.pure(0)).unsafeRunToEither foreach println
+
+  Thread sleep 500L
+
   println("\n----- attempt:")
 
   val outer: Either[Throwable, Either[Throwable, Int]] = io.attempt.unsafeRunToEither

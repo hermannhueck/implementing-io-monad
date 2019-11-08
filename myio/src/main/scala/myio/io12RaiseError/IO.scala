@@ -12,7 +12,7 @@ sealed trait IO[+A] extends Product with Serializable {
 
   import IO._
 
-  protected def unsafeRun(): A
+  def unsafeRun(): A
 
   def flatMap[B](f: A => IO[B]): IO[B] =
     FlatMap(this, f)
