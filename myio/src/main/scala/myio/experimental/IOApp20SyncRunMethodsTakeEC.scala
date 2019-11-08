@@ -66,8 +66,8 @@ object IOApp20SyncRunMethodsTakeEC extends util.App {
 
   object IO {
 
-    private case class Pure[A](thunk: () => A) extends IO[A] {
-      override def run(implicit ec: ExecutionContext): A = thunk()
+    private case class Pure[A](a: A) extends IO[A] {
+      override def run(implicit ec: ExecutionContext): A = a
     }
 
     private case class Eval[A](thunk: () => A) extends IO[A] {
@@ -104,10 +104,8 @@ object IOApp20SyncRunMethodsTakeEC extends util.App {
         Await.result(fa, Duration.Inf) // BLOCKING!!!
     }
 
-    def pure[A](a: A): IO[A] = Pure { () =>
-      a
-    }
-    def now[A](a: A): IO[A] = pure(a)
+    def pure[A](a: A): IO[A] = Pure(a)
+    def now[A](a: A): IO[A]  = pure(a)
 
     def raiseError[A](exception: Exception): IO[A] = Error[A](exception)
 

@@ -73,8 +73,8 @@ sealed trait IO[+A] extends Product with Serializable {
 
 object IO {
 
-  private case class Pure[A](thunk: () => A) extends IO[A] {
-    override def unsafeRun(): A = thunk()
+  private case class Pure[A](a: A) extends IO[A] {
+    override def unsafeRun(): A = a
   }
 
   private case class Eval[A](thunk: () => A) extends IO[A] {
@@ -93,7 +93,7 @@ object IO {
     override def unsafeRun(): A = thunk().unsafeRun()
   }
 
-  def pure[A](a: A): IO[A] = Pure(() => a)
+  def pure[A](a: A): IO[A] = Pure(a)
   def now[A](a: A): IO[A]  = pure(a)
 
   def raiseError[A](t: Throwable): IO[A] = Error[A](t)
