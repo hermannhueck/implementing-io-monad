@@ -573,7 +573,7 @@ program()    // producing the side effects "at the end of the world"
 <br/>
 
 ```scala
-case class IO[A](unsafeRun: () => A)
+final case class IO[A](unsafeRun: () => A)
 ```
 
 --
@@ -607,7 +607,7 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 <br/>
 
 ```scala
-case class IO[A](unsafeRun: () => A) {
+final case class IO[A](unsafeRun: () => A) {
   def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(unsafeRun()).unsafeRun() }
   def map[B](f: A => B): IO[B] = IO { () => f(unsafeRun()) }
   def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
@@ -643,7 +643,7 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 ## 5. Companion object *IO* &nbsp;with *pure* &nbsp;and *eval*
 
 ```scala
-case class IO[A](unsafeRun: () => A) {
+final case class IO[A](unsafeRun: () => A) {
   def flatMap[B](f: A => IO[B]): IO[B] = IO { () => f(unsafeRun()).unsafeRun() }
   def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
   def flatten[B](implicit ev: A <:< IO[B]): IO[B] = flatMap(a => a)
@@ -683,22 +683,27 @@ program.unsafeRun()    // producing the side effects "at the end of the world"
 ## 6. *IO* &nbsp;as ADT
 
 ```scala
-sealed trait IO[+A] {
+sealed trait IO[+A] extends Product with Serializable {
+  
   def unsafeRun(): A
 
   def flatMap[B](f: A => IO[B]): IO[B] = IO { f(unsafeRun()).unsafeRun() }
   def map[B](f: A => B): IO[B] = flatMap(a => pure(f(a)))
 }
+```
+
+```scala
 object IO {
+
   // ADT sub types
-  private case class Pure[A](thunk: () => A) extends IO[A] {
-    override def unsafeRun(): A = thunk()
+  private case class Pure[A](a: A) extends IO[A] {
+    override def unsafeRun(): A = a
   }
   private case class Eval[A](thunk: () => A) extends IO[A] {
     override def unsafeRun(): A = thunk()
   }
 
-  def pure[A](a: A): IO[A] = Pure { () => a }
+  def pure[A](a: A): IO[A] = Pure(a)
   def now[A](a: A): IO[A] = pure(a)
 
   def eval[A](a: => A): IO[A] = Eval { () => a }
@@ -707,7 +712,14 @@ object IO {
 }
 ```
 
---
+---
+
+<br/>
+### *IO* &nbsp;as ADT
+<br/>
+
+- To create an ADT the previos case class has been replaced by a sealed trait
+  and a bunch of case classes derived from that trait.
 
 - *IO.apply* is an alias for *IO.eval*. (Simplifies the creation of *IO* instances.)
 
@@ -719,7 +731,7 @@ object IO {
 <br/>
 
 ```scala
-sealed trait IO[+A] {
+sealed trait IO[+A] extends Product with Serializable {
 
   def flatMap[B](f: A => IO[B]): IO[B] =
     FlatMap(this, f)
@@ -728,7 +740,9 @@ sealed trait IO[+A] {
     // flatMap(a => pure(f(a))) // is equivalent to:
     flatMap(f andThen pure)
 }
+```
 
+```scala
 object IO {
   // ADT sub types
   private case class FlatMap[A, B](src: IO[A], f: A => IO[B]) extends IO[B] {
@@ -747,7 +761,7 @@ object IO {
 ---
 
 <br/>
-## IO Monad - What we implemented:
+## IO (not yet a Monad) - What we implemented:
 <br/>
 
 - Using a function instead of a method, *val* instead of *def*
@@ -758,7 +772,7 @@ object IO {
 
 - companion object with *pure* and other smart constructors
 
-- case class converted to ADT
+- case class converted to ADT (sealed trait + derived case classes)
 
 ---
 
@@ -786,7 +800,7 @@ object IO {
 <br/>
 
 ```scala
-case class IO[A](unsafeRun: () => A) {
+sealed trait IO[+A] extends Product with Serializable {
 
   def unsafeRunToTry: Try[A] = Try { unsafeRun() }
 
@@ -794,16 +808,16 @@ case class IO[A](unsafeRun: () => A) {
 }
 ```
 
---
+Usage:
 
 ```scala
 // running the program synchronously ...
 
-val value: Unit = program.unsafeRun()                                 // ()
+val value: Unit = program.unsafeRun()                           // ()
 
-val tryy: Try[Unit] = program.unsafeRunToTry                          // Success(())
+val tryy: Try[Unit] = program.unsafeRunToTry                    // Success(())
 
-val either: Either[Throwable, Unit] = program.unsafeRunToEither       // Right(())
+val either: Either[Throwable, Unit] = program.unsafeRunToEither // Right(())
 ```
 <br/>
 --
@@ -849,7 +863,7 @@ val either: Either[Throwable, Boolean] = checkMaggie.unsafeRunToEither
 <br/>
 
 ```scala
-case class IO[A](unsafeRun: () => A) {
+sealed trait IO[+A] extends Product with Serializable {
 
   def unsafeRunToFuture(implicit ec: ExecutionContext): Future[A] =
     Future { unsafeRun() }
@@ -914,7 +928,7 @@ def eitherCallback[A]: Either[Throwable, A] => Unit = either =>
 <br/>
 
 ```scala
-case class IO[A](unsafeRun: () => A) {
+sealed trait IO[+A] extends Product with Serializable {
 
   def foreach(f: A => Unit)(implicit ec: ExecutionContext): Unit =
     unsafeRunAsync {
@@ -975,33 +989,26 @@ println(ioError.unsafeRunToEither)
 
 ---
 
-## 13. *IO#failed* &nbsp;(returns a failed projection).
+<br/>
+## 13. *IO#failed* &nbsp;(failed projection of an IO).
+<br/>
 
 ```scala
-sealed trait IO[+A] {
-  def failed: IO[Throwable] = Failed(this)
-}
+sealed trait IO[+A] extends Product with Serializable {
 
-object IO {
-  // ADT sub types
-  private case class Failed[A](io: IO[A]) extends IO[Throwable] {
-    override def unsafeRun(): Throwable = try {
-      io.unsafeRun()
-      throw new NoSuchElementException("failed")
-    } catch {
-      case nse: NoSuchElementException if nse.getMessage == "failed" =>
-        throw nse
-      case throwable: Throwable =>
-        throwable
+  def failed: IO[Throwable] =
+    this.flatMap {
+      case Error(t) => IO.pure(t)
+      case _        => IO.raiseError(new NoSuchElementException("failed"))
     }
-  }
 }
 ```
 
---
-
 <br/>
-- ADT sub type *Failed* wraps the *IO* to project.
+<br/>
+The failed projection is an *IO* holding a value of type *Throwable*,
+emitting the error yielded by the source, in case the source fails,
+otherwise if the source succeeds the result will fail with a *NoSuchElementException*.
 
 ---
 
@@ -1026,13 +1033,6 @@ println(ioSuccess.unsafeRunToEither)
 println(ioSuccess.failed.unsafeRunToEither)
 //=> Left(java.util.NoSuchElementException: failed)
 ```
-
---
-
-<br/>
-The failed projection is an *IO* holding a value of type *Throwable*, emitting the error yielded by the source,
-in case the source fails, otherwise if the source succeeds the result will fail with a *NoSuchElementException*.
-
 
 ---
 
