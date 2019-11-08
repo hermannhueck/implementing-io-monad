@@ -1,6 +1,6 @@
 package rt
 
-import myio.io05.IO
+import myio.io05PureAndEval.IO
 
 /*
   see: https://typelevel.org/blog/2017/05/02/io-monad-for-cats.html
