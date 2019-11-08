@@ -6,7 +6,7 @@
 
 package myio.io04MapAndFlatMap
 
-case class IO[A](unsafeRun: () => A) {
+final case class IO[A](unsafeRun: () => A) {
 
   def flatMap[B](f: A => IO[B]): IO[B] =
     IO(() => f(unsafeRun()).unsafeRun())

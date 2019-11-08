@@ -11,7 +11,7 @@
 
 package myio.io05PureAndEval
 
-case class IO[A](unsafeRun: () => A) {
+final case class IO[A](unsafeRun: () => A) {
 
   import IO._
 

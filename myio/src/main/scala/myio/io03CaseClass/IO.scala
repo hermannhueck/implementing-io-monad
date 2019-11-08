@@ -7,4 +7,4 @@ package myio.io03CaseClass
 
 // IO[A] wraps a Function0[A]
 //
-case class IO[A](unsafeRun: () => A)
+final case class IO[A](unsafeRun: () => A)
