@@ -1,6 +1,6 @@
 package myio.io26WithAllApps
 
-import myio.effect.Sync
+import cats.effect.Sync
 import scala.concurrent.ExecutionContext
 
 object App26Sync extends util.App {

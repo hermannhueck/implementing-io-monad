@@ -4,7 +4,7 @@
 
 package myio.io24Bracket
 
-import myio.effect.{Bracket, ExitCase}
+import cats.effect.{Bracket, ExitCase}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -224,12 +224,22 @@ object IO {
       fa onErrorHandleWith f
 
     // Bracket
-    override def bracket[A, B](acquire: IO[A])(use: A => IO[B])(release: A => IO[Unit]): IO[B] =
+    override def bracket[A, B](
+        acquire: IO[A]
+    )(
+        use: A => IO[B]
+    )(
+        release: A => IO[Unit]
+    ): IO[B] =
       acquire.bracket(use)(release)
 
     override def bracketCase[A, B](
         acquire: IO[A]
-    )(use: A => IO[B])(release: (A, ExitCase[Throwable]) => IO[Unit]): IO[B] =
+    )(
+        use: A => IO[B]
+    )(
+        release: (A, ExitCase[Throwable]) => IO[Unit]
+    ): IO[B] =
       acquire.bracketCase(use)(release)
   }
 
