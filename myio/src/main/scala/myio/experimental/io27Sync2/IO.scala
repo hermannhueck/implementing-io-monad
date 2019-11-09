@@ -4,7 +4,7 @@
 
 package myio.experimental.io27Sync2
 
-import myio.effect.{ExitCase, Sync}
+import cats.effect.{ExitCase, Sync}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.Success
