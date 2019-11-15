@@ -1,4 +1,4 @@
-package littleMonadDemo.monad
+package littleMonadDemo.libCategories
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext

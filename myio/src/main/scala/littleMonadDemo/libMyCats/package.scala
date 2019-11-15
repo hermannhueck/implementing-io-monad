@@ -1,6 +1,6 @@
 package littleMonadDemo
 
-package object monad {
+package object libCategories {
 
   implicit class MonadOps[F[_]: Monad, A](fa: F[A]) {
 
