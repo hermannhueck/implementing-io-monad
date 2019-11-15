@@ -1,4 +1,4 @@
-package rt
+package referentialTransparency
 
 /*
   see: https://typelevel.org/blog/2017/05/02/io-monad-for-cats.html

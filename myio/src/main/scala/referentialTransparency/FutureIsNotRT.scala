@@ -1,4 +1,4 @@
-package isFutureRT
+package referentialTransparency
 
 import java.util.concurrent.atomic.AtomicInteger
 

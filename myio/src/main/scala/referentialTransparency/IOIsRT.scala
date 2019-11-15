@@ -1,8 +1,8 @@
-package isFutureRT
+package referentialTransparency
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import myio.io10RunAsync.IO
+import cats.effect.IO
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -21,7 +21,7 @@ object IOIsRT extends util.App {
     } yield (x, y)
   }
 
-  io1.unsafeRunToFuture onComplete println // Success((1,2))
+  io1.unsafeToFuture onComplete println // Success((1,2))
 
   // same as io1, but inlined
   val io2: IO[(Int, Int)] = {
@@ -32,7 +32,7 @@ object IOIsRT extends util.App {
     } yield (x, y)
   }
 
-  io2.unsafeRunToFuture onComplete println // Success((1,2))    <-- same result
+  io2.unsafeToFuture onComplete println // Success((1,2))    <-- same result
 
   Thread.sleep(200L)
   println("-----")
