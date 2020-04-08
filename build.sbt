@@ -4,7 +4,7 @@ val projectName = "implementing-io-monad"
 
 val projectDescription =
   "own implementation of the IO Monad (supporting some of the cats-effect type classes)"
-val projectVersion = "0.0.1"
+val projectVersion = "0.1.0"
 
 inThisBuild(
   Seq(
@@ -15,7 +15,7 @@ inThisBuild(
     publish / skip := true,
     scalacOptions ++= defaultScalacOptions,
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-effect" % "2.0.0"
+      "org.typelevel" %% "cats-effect" % "2.1.2"
     ),
     // https://github.com/typelevel/kind-projector
     addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
