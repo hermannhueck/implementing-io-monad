@@ -5,11 +5,12 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Using
 import util.formatting._
 
+@com.github.ghik.silencer.silent("deprecated")
 trait App extends DelayedInit {
 
   final val executionStart: Long = currentTime
 
-  protected final def args: Array[String] = _args
+  final protected def args: Array[String] = _args
 
   private[this] var _args: Array[String] = _
 
@@ -18,9 +19,7 @@ trait App extends DelayedInit {
   def execBody(body: => Unit): Unit =
     Using.resource[Unit, Unit] {
       printHeaderWithProgramName(this)
-    } { _ =>
-      body
-    } { _ =>
+    } { _ => body } { _ =>
       val total = currentTime - executionStart
       printFooter(s"[total: $total ms]")
     }
