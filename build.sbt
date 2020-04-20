@@ -15,7 +15,7 @@ inThisBuild(
     publish / skip := true,
     scalacOptions ++= defaultScalacOptions,
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-effect" % "2.1.2"
+      "org.typelevel" %% "cats-effect" % "2.1.3"
     ),
     // https://github.com/typelevel/kind-projector
     addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
