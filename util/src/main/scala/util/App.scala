@@ -5,7 +5,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Using
 import util.formatting._
 
-@com.github.ghik.silencer.silent("deprecated")
+// @com.github.ghik.silencer.silent("deprecated")
 trait App extends DelayedInit {
 
   final val executionStart: Long = currentTime

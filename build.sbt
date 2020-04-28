@@ -7,7 +7,6 @@ val projectDescription =
 val projectVersion = "0.1.0"
 
 lazy val catsEffectVersion       = "2.1.3"
-lazy val silencerVersion         = "1.6.0"
 lazy val kindProjectorVersion    = "0.11.0"
 lazy val betterMonadicForVersion = "0.3.1"
 
@@ -20,13 +19,7 @@ inThisBuild(
     publish / skip := true,
     scalacOptions ++= defaultScalacOptions,
     libraryDependencies ++= Seq(
-      "org.typelevel"   %% "cats-effect" % catsEffectVersion,
-      "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full,
-      // https://github.com/ghik/silencer
-      "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full,
-      compilerPlugin(
-        "com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full
-      ),
+      "org.typelevel" %% "cats-effect" % catsEffectVersion,
       // https://github.com/typelevel/kind-projector
       compilerPlugin(
         compilerPlugin("org.typelevel" % "kind-projector" % kindProjectorVersion cross CrossVersion.full)
