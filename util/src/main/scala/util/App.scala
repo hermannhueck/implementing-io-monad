@@ -6,6 +6,7 @@ import scala.util.Using
 import util.formatting._
 
 // @com.github.ghik.silencer.silent("deprecated")
+@scala.annotation.nowarn("cat=deprecation&since=2.11.0&msg=trait DelayedInit:ws")
 trait App extends DelayedInit {
 
   final val executionStart: Long = currentTime
