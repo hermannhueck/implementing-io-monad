@@ -15,7 +15,7 @@ inThisBuild(
     name := projectName,
     description := projectDescription,
     version := projectVersion,
-    scalaVersion := "2.13.1",
+    scalaVersion := "2.13.2",
     publish / skip := true,
     scalacOptions ++= defaultScalacOptions,
     libraryDependencies ++= Seq(
